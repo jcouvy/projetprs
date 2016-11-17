@@ -109,14 +109,6 @@ void map_save(char *filename) {
     ret = write(SaveFile, &map.nb_objects, sizeof(unsigned));
     if (ret < 0) perror("Error writing nb obj");
 
-    /* Writing in the save file the 2D matrix where matrix[x][y] is the sprite
-    type. Nb: this loop should be merged with the one above */
-    for (int y=0 ; y<map.height ; y++) {
-        for (int x=0 ; x<map.width ; x++) {
-            ret = write(SaveFile, &matrix[x][y], sizeof(int));
-            if (ret < 0) perror("Error writing 2D matrix");
-        }
-    }
 
     /* Creating a struct Object_s of sprites and filling it with each sprite
     characteristics to be found in the map */
@@ -147,6 +139,15 @@ void map_save(char *filename) {
         ret = write(SaveFile, &objs[i].name_length,  sizeof(int));
         ret = write(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
         if (ret < 0) perror("Error during writing Object_s carac");
+    }
+
+    /* Writing in the save file the 2D matrix where matrix[x][y] is the sprite
+    type. Nb: this loop should be merged with the one above */
+    for (int y=0 ; y<map.height ; y++) {
+            for (int x=0 ; x<map.width ; x++) {
+                    ret = write(SaveFile, &matrix[x][y], sizeof(int));
+                    if (ret < 0) perror("Error writing 2D matrix");
+            }
     }
 
     /**********************************************/
@@ -194,13 +195,6 @@ void map_load(char *filename) {
 
     int matrix[map.width][map.height];
 
-    for (int y = 0; y < map.height; ++y) {
-      for (int x = 0; x < map.width; ++x) {
-        ret = read(LoadFile, &matrix[x][y], sizeof(int));
-        if (ret < 0) perror("Error during reading 2DMatrix");
-      }
-    }
-
     Object_s objs[map.nb_objects];
     for (int i=0 ; i<map.nb_objects ; i++) {
         ret = read(LoadFile, &objs[i].type,         sizeof(int));
@@ -213,6 +207,13 @@ void map_load(char *filename) {
         objs[i].name = malloc(objs[i].name_length * sizeof(char));
         ret = read(LoadFile, objs[i].name,          objs[i].name_length * sizeof(char));
         if (ret < 0) perror("Error during reading Object_s carac");
+    }
+
+    for (int y = 0; y < map.height; ++y) {
+            for (int x = 0; x < map.width; ++x) {
+                    ret = read(LoadFile, &matrix[x][y], sizeof(int));
+                    if (ret < 0) perror("Error during reading 2DMatrix");
+            }
     }
 
     /**********************************************/
