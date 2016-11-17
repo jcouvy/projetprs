@@ -25,7 +25,8 @@ typedef struct {
     int      destructible;
     int      collectible;
     int      generator;
-    char     name[200];
+    int      name_length;
+    char     *name;
 } Object_s;
 
 void map_new(unsigned width, unsigned height) {
@@ -123,15 +124,19 @@ void map_save(char *filename) {
 
     for (int i=0 ; i<map.nb_objects ; i++) {
         int type = diff_types[i];
-        char *str = map_get_name(type);
+        char* str = map_get_name(type);
+
         objs[i].type         = type;
         objs[i].frame        = map_get_frames(type);
         objs[i].solidity     = map_get_solidity(type);
         /* Writes MACRO value defined in map.h if bool is True */
-        objs[i].destructible = map_is_destructible(type) ? MAP_OBJECT_DESTRUCTIBLE:0 ;
+        objs[i].destructible = map_is_destructible(type) ? MAP_OBJECT_DESTRUCTIBLE:0;
         objs[i].collectible  = map_is_collectible(type) ? MAP_OBJECT_COLLECTIBLE:0;
         objs[i].generator    = map_is_generator(type) ? MAP_OBJECT_GENERATOR:0;
-        strcpy(objs[i].name, str); /* Quick fix to simplify the loading part */
+        /* Saving sprite path length in order to read properly later */
+        objs[i].name_length = strlen(str)+1;
+        objs[i].name = malloc(objs[i].name_length * sizeof(char));
+        strcpy(objs[i].name, str);
 
         ret = write(SaveFile, &objs[i].type,         sizeof(int));
         ret = write(SaveFile, &objs[i].frame,        sizeof(int));
@@ -139,9 +144,9 @@ void map_save(char *filename) {
         ret = write(SaveFile, &objs[i].collectible,  sizeof(int));
         ret = write(SaveFile, &objs[i].destructible, sizeof(int));
         ret = write(SaveFile, &objs[i].generator,    sizeof(int));
-        ret = write(SaveFile, objs[i].name,          sizeof(objs[i].name));
+        ret = write(SaveFile, &objs[i].name_length,  sizeof(int));
+        ret = write(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
         if (ret < 0) perror("Error during writing Object_s carac");
-
     }
 
     /**********************************************/
@@ -167,6 +172,9 @@ void map_save(char *filename) {
     }
     /**********************************************/
 
+    for (int i=0 ; i<map.nb_objects ; i++) {
+            free(objs[i].name);
+    }
     close(SaveFile);
 }
 
@@ -201,7 +209,9 @@ void map_load(char *filename) {
         ret = read(LoadFile, &objs[i].collectible,  sizeof(int));
         ret = read(LoadFile, &objs[i].destructible, sizeof(int));
         ret = read(LoadFile, &objs[i].generator,    sizeof(int));
-        ret = read(LoadFile, objs[i].name,          sizeof(objs[i].name));
+        ret = read(LoadFile, &objs[i].name_length,  sizeof(int));
+        objs[i].name = malloc(objs[i].name_length * sizeof(char));
+        ret = read(LoadFile, objs[i].name,          objs[i].name_length * sizeof(char));
         if (ret < 0) perror("Error during reading Object_s carac");
     }
 
@@ -250,6 +260,11 @@ void map_load(char *filename) {
     }
 
     map_object_end();
+
+    for (int i=0 ; i<map.nb_objects ; i++) {
+            free(objs[i].name);
+    }
+
     close(LoadFile);
 }
 
