@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 #define _POSIX_SOURCE
 
 #include <fcntl.h>
@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <getopt.h>
 
+#define HELP        -1
 #define GET_WIDTH    1
 #define GET_HEIGHT   2
 #define GET_OBJECTS  4
@@ -33,6 +34,12 @@ struct option {
 
 */
 
+void help(){
+  printf("--getwidth\n --getheigh\n \
+  --getobjects\n --getinfo\n	    \
+--setwidth\n --setheight\n");
+}
+
 void set_width(int fd, int w){
   printf(" je suis dans set_width avec %d en arg \n",w);
 }
@@ -43,7 +50,6 @@ void set_height(int fd, int h){
 
 
 
-=======
 
 
 enum { WIDTH=0, HEIGHT, MAX_OBJ, NB_OBJ, OBJ_INFO, MATRIX };
@@ -136,13 +142,16 @@ int main(int argc, char* argv[]){
             {"getinfo",     no_argument,         0,   GET_INFO},
             {"setwidth",    required_argument,   0,   SET_WIDTH},
             {"setheight",   required_argument,   0,   SET_HEIGHT},
-            {0,             0,                   0,   0 }
+            {0,             0,                   0,   HELP }
 
        };
 
        value_getopt = getopt_long_only(argc,argv,"",long_option,&option_index);
 
        switch(value_getopt){
+       case HELP          :
+	 help();
+	 break;
        case GET_WIDTH     :
       
          get_width(fd);
@@ -206,4 +215,4 @@ int main(int argc, char* argv[]){
         lseek(fd, 0, SEEK_SET);
    }
  */
->>>>>>> 7ebcdfd023f1a8903c448ce3393154c95e10a8a1
+
