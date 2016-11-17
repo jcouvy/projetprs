@@ -127,9 +127,10 @@ void map_save(char *filename) {
         objs[i].type         = type;
         objs[i].frame        = map_get_frames(type);
         objs[i].solidity     = map_get_solidity(type);
-        objs[i].collectible  = map_is_collectible(type);
-        objs[i].destructible = map_is_destructible(type);
-        objs[i].generator    = map_is_generator(type);
+        /* Writes MACRO value defined in map.h if bool is True */
+        objs[i].destructible = map_is_destructible(type) ? MAP_OBJECT_DESTRUCTIBLE:0 ;
+        objs[i].collectible  = map_is_collectible(type) ? MAP_OBJECT_COLLECTIBLE:0;
+        objs[i].generator    = map_is_generator(type) ? MAP_OBJECT_GENERATOR:0;
         strcpy(objs[i].name, str); /* Quick fix to simplify the loading part */
 
         ret = write(SaveFile, &objs[i].type,         sizeof(int));
