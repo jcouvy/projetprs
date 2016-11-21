@@ -19,6 +19,7 @@ typedef struct {
 } Map_s;
 
 typedef struct {
+    int      found; // Object is found in map
     int      type;
     int      frame;
     int      solidity;
@@ -64,8 +65,26 @@ bool isvalueinarray(int val, int *arr, int size){
     return false;
 }
 
-/* SaveFile Format:
-Width...Height...Max_Obj...Nb_Obj...2DMatrix...Obj1 Carac...Obj2 Carac etc...
+/* SaveFile Format (line breaks are for readability only, not present in binary):
+    Map width  (UNSIGNED)
+    Map height (UNSIGNED)
+    Maximum amount of object (UNSIGNED)
+    Number of objects in map & editor (UNSIGNED) -- equals to max when using set_objects.
+
+    Object 1:
+        Found physically in the map (INT)
+        Type (INT)
+        Frames of its decal (INT)
+        Solidity (INT)
+        Destructibiliy (INT)
+        Collectibility (INT)
+        Generator (INT)
+        Length of its texture name (INT)
+        Texture name (CHAR *)
+
+    (...) Object n
+
+    2D Matrix of the map (INT)
 */
 void map_save(char *filename) {
 
@@ -118,6 +137,7 @@ void map_save(char *filename) {
         int type = diff_types[i];
         char* str = map_get_name(type);
 
+        objs[i].found        = true;
         objs[i].type         = type;
         objs[i].frame        = map_get_frames(type);
         objs[i].solidity     = map_get_solidity(type);
@@ -130,6 +150,7 @@ void map_save(char *filename) {
         objs[i].name = malloc(objs[i].name_length * sizeof(char));
         strcpy(objs[i].name, str);
 
+        ret = write(SaveFile, &objs[i].found,        sizeof(int));
         ret = write(SaveFile, &objs[i].type,         sizeof(int));
         ret = write(SaveFile, &objs[i].frame,        sizeof(int));
         ret = write(SaveFile, &objs[i].solidity,     sizeof(int));
@@ -197,6 +218,7 @@ void map_load(char *filename) {
 
     Object_s objs[map.nb_objects];
     for (int i=0 ; i<map.nb_objects ; i++) {
+        ret = read(LoadFile, &objs[i].found,        sizeof(int));
         ret = read(LoadFile, &objs[i].type,         sizeof(int));
         ret = read(LoadFile, &objs[i].frame,        sizeof(int));
         ret = read(LoadFile, &objs[i].solidity,     sizeof(int));
@@ -242,10 +264,12 @@ void map_load(char *filename) {
 
     map_allocate(map.width, map.height);
 
-    /* Fills the map with sprites; We search the type corresponding to the order object_add() calls */
+    /* Fills the map with sprites; We search the type corresponding to the order object_add() calls
+       We make sure to add only the objects found as the array objs contains elements only
+       available in edition mode. */
     for (int y=0 ; y<map.height ; y++) {
         for (int x=0 ; x<map.width ; x++) {
-            for (int i=0 ; i<map.nb_objects ; i++) {
+            for (int i=0 ; i<map.nb_objects  && objs[i].found == true; i++) {
                 if (objs[i].type == matrix[x][y])
                     map_set(x, y, i);
             }
