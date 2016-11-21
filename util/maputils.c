@@ -315,6 +315,116 @@ void get_info(int fd)
         get_obj_info(fd);
 }
 
+/* Appends the new set of objects parsed in parameters to the savegame.
+Each object characteristics are given by the user.
+(ex: "images/ground.png" 1 solid not-destructible not-collectible not-generator).
+If the object is already present in the map the savegame isn't modified.
+Otherwise the new object is appended in edition-mode only (found flag set to false).
+*/
+
+void set_objects(int SaveFile, int nb_args, char *args[])
+{
+        bool object_in_savefile(int SaveFile, int index)
+        {
+            lseek(SaveFile, 7 * sizeof(int), SEEK_CUR);
+            int name_length;
+            while (1)
+            {
+                read(SaveFile, &name_length, sizeof(int));
+                char sprite[name_length];
+                if (read(SaveFile, sprite, sizeof(sprite)) < 0)
+                break;
+                if (strcmp(args[index], sprite) == 0)
+                return true;
+            }
+            return false;
+        }
+
+        unsigned nb_objs;
+        lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
+        read(SaveFile, &nb_objs, sizeof(unsigned));
+
+        unsigned width   = get_width_value(SaveFile);
+        unsigned height  = get_height_value(SaveFile);
+        int matrix[width][height];
+
+        /* Truncate and save the 2D Matrix */
+        go_to_matrix(SaveFile, width, height);
+        int matrix_pos = lseek(SaveFile, 0, SEEK_CUR);
+
+        for (int y=0 ; y<height ; y++)
+            for (int x=0 ; x<width ; x++)
+                read(SaveFile, &matrix[x][y], sizeof(int));
+
+        ftruncate(SaveFile, matrix_pos);
+
+
+        lseek(SaveFile, 0, SEEK_END);
+        for (int i=3 ; i<nb_args ; i += 6)
+        {
+            if (!object_in_savefile(SaveFile, i))
+            {
+                lseek(SaveFile, 0, SEEK_END);
+
+                int val = atoi(args[i+1]);
+                write(SaveFile, false,   sizeof(int));  // Found flag
+                write(SaveFile, &nb_objs, sizeof(int));  // Type = obj index
+                write(SaveFile, &val, sizeof(int)); // Frame
+
+                if   (strcmp("solid", args[i+2]) == 0) val = 2;
+                else if (strcmp("semi-solid", args[i+2]) == 0) val = 1;
+                else if (strcmp("air", args[i+2]) == 0) val = 0;
+                else {
+                    perror("Wrong solidity argument !");
+                    exit(EXIT_FAILURE);
+                }
+                write(SaveFile, &val, sizeof(int));
+
+                if   (strcmp("destructible", args[i+3]) == 0) val = 4;
+                else if (strcmp("not-destructible", args[i+3]) == 0) val = 0;
+                else {
+                    perror("Wrong destructibiliy argument !");
+                    exit(EXIT_FAILURE);
+                }
+                write(SaveFile, &val, sizeof(int));
+
+                if   (strcmp("collectible", args[i+4]) == 0) val = 8;
+                else if (strcmp("not-collectible", args[i+4]) == 0) val = 0;
+                else {
+                    perror("Wrong collectibility argument !");
+                    exit(EXIT_FAILURE);
+                }
+                write(SaveFile, &val, sizeof(int));
+
+                if   (strcmp("generator", args[i+4]) == 0) val = 16;
+                else if (strcmp("not-generator", args[i+4]) == 0) val = 0;
+                else {
+                    perror("Wrong generator argument !");
+                    exit(EXIT_FAILURE);
+                }
+                write(SaveFile, &val, sizeof(int));
+
+                int name_length = strlen(args[i]) + 1;
+                write(SaveFile, &name_length, sizeof(int));
+                write(SaveFile, args[i], sizeof(name_length));
+
+                nb_objs++;
+            }
+        }
+
+
+        /* Overwrite Max obj & Nb obj */
+        lseek(SaveFile, MAX_OBJ * sizeof(unsigned), SEEK_SET);
+        write(SaveFile, &nb_objs, sizeof(unsigned));
+        write(SaveFile, &nb_objs, sizeof(unsigned));
+
+        lseek(SaveFile, 0, SEEK_END);
+        /* Restore the 2D Matrix */
+        for (int y=0 ; y<height ; y++)
+            for (int x=0 ; x<width ; x++)
+                write(SaveFile, &matrix[x][y], sizeof(int));
+
+}
 
 
 int main(int argc, char* argv[]){
