@@ -2,7 +2,7 @@ SRC := $(wildcard *.c)
 CFLAGS := -std=c99 -Wall -g
 
 
-all:  $(SRC)
+maputils:  $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
 bin:
