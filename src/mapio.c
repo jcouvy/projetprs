@@ -154,8 +154,8 @@ void map_save(char *filename) {
         ret = write(SaveFile, &objs[i].type,         sizeof(int));
         ret = write(SaveFile, &objs[i].frame,        sizeof(int));
         ret = write(SaveFile, &objs[i].solidity,     sizeof(int));
+	ret = write(SaveFile, &objs[i].destructible, sizeof(int));
         ret = write(SaveFile, &objs[i].collectible,  sizeof(int));
-        ret = write(SaveFile, &objs[i].destructible, sizeof(int));
         ret = write(SaveFile, &objs[i].generator,    sizeof(int));
         ret = write(SaveFile, &objs[i].name_length,  sizeof(int));
         ret = write(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
@@ -222,8 +222,8 @@ void map_load(char *filename) {
         ret = read(LoadFile, &objs[i].type,         sizeof(int));
         ret = read(LoadFile, &objs[i].frame,        sizeof(int));
         ret = read(LoadFile, &objs[i].solidity,     sizeof(int));
+	ret = read(LoadFile, &objs[i].destructible, sizeof(int));
         ret = read(LoadFile, &objs[i].collectible,  sizeof(int));
-        ret = read(LoadFile, &objs[i].destructible, sizeof(int));
         ret = read(LoadFile, &objs[i].generator,    sizeof(int));
         ret = read(LoadFile, &objs[i].name_length,  sizeof(int));
         objs[i].name = malloc(objs[i].name_length * sizeof(char));

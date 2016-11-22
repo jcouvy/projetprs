@@ -290,12 +290,12 @@ void get_obj_info(int fd)
                 printf("Frame: %d\n", res);
                 read(fd, &res, sizeof(int));
                 printf("Solidity: %d\n", res);
-                read(fd, &res, sizeof(int));
+		read(fd, &res, sizeof(int));
                 printf("Destructible: %d\n", res);
+		read(fd, &res, sizeof(int));
+                printf("Collectible: %d\n", res);
                 read(fd, &res, sizeof(int));
                 printf("Generator: %d\n", res);
-                read(fd, &res, sizeof(int));
-                printf("Collectible: %d\n", res);
                 read(fd, &res, sizeof(int));
                 printf("Name length: %d\n", res);
                 read(fd, &str, res*sizeof(char));
@@ -319,23 +319,30 @@ If the object is already present in the map the savegame isn't modified.
 Otherwise the new object is appended in edition-mode only (found flag set to false).
 */
 
-void set_objects(int SaveFile, int nb_args, char *args[])
-{
-        bool object_in_savefile(int SaveFile, int index)
+bool object_in_savefile(int SaveFile, int index, char *args[])
         {
-            lseek(SaveFile, 7 * sizeof(int), SEEK_CUR);
+	  int res;
+	  int ret = 1;
             int name_length;
-            while (1)
-            {
-                read(SaveFile, &name_length, sizeof(int));
-                char sprite[name_length];
-                if (read(SaveFile, sprite, sizeof(sprite)) < 0)
-                break;
-                if (strcmp(args[index], sprite) == 0)
-                return true;
-            }
+	    
+            while (ret>0)
+	      {
+		ret = read(SaveFile, &res,sizeof(int));
+		if(ret >0){
+		  lseek(SaveFile,6 * sizeof(int),SEEK_CUR);
+		  read(SaveFile, &name_length, sizeof(int));
+		  char *sprite = malloc(name_length * sizeof(char));
+		  read(SaveFile, sprite, name_length *sizeof(char));
+		  printf("%s avec %s\n",args[index],sprite);
+		  if (strcmp(args[index], sprite) == 0)
+		    return true;
+		}
+	      }
             return false;
         }
+
+void set_objects(int SaveFile, int nb_args, char *args[])
+{
 
         unsigned nb_objs;
         lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
@@ -355,11 +362,11 @@ void set_objects(int SaveFile, int nb_args, char *args[])
 
         ftruncate(SaveFile, matrix_pos);
 
-
-        lseek(SaveFile, 0, SEEK_END);
+        lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+	
         for (int i=3 ; i<nb_args ; i += 6)
         {
-            if (!object_in_savefile(SaveFile, i))
+	  if (!object_in_savefile(SaveFile, i,args))
             {
                 lseek(SaveFile, 0, SEEK_END);
 
@@ -393,8 +400,8 @@ void set_objects(int SaveFile, int nb_args, char *args[])
                 }
                 write(SaveFile, &val, sizeof(int));
 
-                if   (strcmp("generator", args[i+4]) == 0) val = 16;
-                else if (strcmp("not-generator", args[i+4]) == 0) val = 0;
+                if   (strcmp("generator", args[i+5]) == 0) val = 16;
+                else if (strcmp("not-generator", args[i+5]) == 0) val = 0;
                 else {
                     perror("Wrong generator argument !");
                     exit(EXIT_FAILURE);
@@ -409,13 +416,37 @@ void set_objects(int SaveFile, int nb_args, char *args[])
             }
         }
 
+        int res;
+        char str[1024];
+        lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+        for (int i=0; i<nb_objs; i++) {
+	  read(SaveFile, &res, sizeof(int));
+	  printf("in map: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Obj type: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Frame: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Solidity: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Destructible: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Collectible: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Generator: %d\n", res);
+	  read(SaveFile, &res, sizeof(int));
+	  printf("Name length: %d\n", res);
+	  read(SaveFile, &str, res*sizeof(char));
+	  printf("Name : %s\n\n", str);
+        }
+	
 
         /* Overwrite Max obj & Nb obj */
         lseek(SaveFile, MAX_OBJ * sizeof(unsigned), SEEK_SET);
         write(SaveFile, &nb_objs, sizeof(unsigned));
         write(SaveFile, &nb_objs, sizeof(unsigned));
 
-        lseek(SaveFile, 0, SEEK_END);
+        printf("%d \n",lseek(SaveFile, 0, SEEK_END));
         /* Restore the 2D Matrix */
         for (int y=0 ; y<height ; y++)
             for (int x=0 ; x<width ; x++)
