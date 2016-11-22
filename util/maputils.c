@@ -18,6 +18,7 @@
 #define GET_INFO     8
 #define SET_WIDTH    16
 #define SET_HEIGHT   32
+#define SET_OBJECTS  64
 
 /*int getopt_long_only(int argc, char * const argv[],
                   const char *optstring,
@@ -451,6 +452,7 @@ int main(int argc, char* argv[]){
                         {"getinfo",     no_argument,         0,   GET_INFO},
                         {"setwidth",    required_argument,   0,   SET_WIDTH},
                         {"setheight",   required_argument,   0,   SET_HEIGHT},
+			{"setobjects",  required_argument,   0,   SET_OBJECTS},
                         {0,             0,                   0,   HELP }
 
                 };
@@ -493,6 +495,11 @@ int main(int argc, char* argv[]){
                         }
                         else set_height(fd,atoi(optarg));
                         break;
+		case SET_OBJECTS:
+
+		  set_objects(fd,argc,argv);
+		  break;
+		  
                 }
                 break;
         }
