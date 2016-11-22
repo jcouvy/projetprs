@@ -108,20 +108,18 @@ object_map *create_object_map(int fd, int width, int height)
                                 }
                         }
                         else{
-                                ret = read(fd, &matrix[x][y], sizeof(int)); //On ajoute a la liste les objets 1 par 1
-                                if (ret < 0) perror("Error during reading Object_s carac");
-                                if (matrix[x][y] != -1 && x<width && y < height) { // cherche les objets de  la map
-                                        if (matrix[x][y] == 1 && x == width -1) ;
-                                        else {
-                                                object_map *new_object = malloc(sizeof(object_map));
-                                                new_object->x = x;
-                                                new_object->y = y;
-                                                new_object->num_object = matrix[x][y];
-                                                new_object->next = NULL;
-                                                current_object->next = new_object;
-                                                current_object = new_object;
-                                        }
-                                }
+			      ret = read(fd, &matrix[x][y], sizeof(int)); //On ajoute a la liste les objets 1 par 1
+			      if (ret < 0) perror("Error during reading Object_s carac");
+			      if (matrix[x][y] != -1 && x < width -1 ) { // cherche les objets de  la map
+                                  
+			         object_map *new_object = malloc(sizeof(object_map));
+			         new_object->x = x;
+			         new_object->y = y;
+				 new_object->num_object = matrix[x][y];
+				 new_object->next = NULL;
+				 current_object->next = new_object;
+				 current_object = new_object;
+			      }
                         }
                 }
         }
@@ -164,8 +162,7 @@ void set_width(int fd, int new_width)
 
         for(int y = 0; y<height; y++) {                // On initialise la matrice en placant le sol et les murs
                 for(int x = 0; x<new_width; x++) {
-                        if(x!=new_width-1) matrix[x][y] = -1;
-                        else matrix[x][y] = 1;
+                        matrix[x][y] = -1;
                 }
         }
 
@@ -217,8 +214,7 @@ void set_height(int fd, int new_height)
 
         for(int y = 0; y<new_height; y++) {
                 for(int x = 0; x<width; x++) {
-                        if(x!=width-1) matrix[x][y] = -1;
-                        else matrix[x][y] = 1;
+                        matrix[x][y] = -1;
                 }
         }
 
