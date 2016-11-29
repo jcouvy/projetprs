@@ -263,14 +263,16 @@ void get_obj_info(int fd)
         lseek(fd, OBJ_INFO * sizeof(unsigned), SEEK_SET);
         for (int i=0; i<nb_obj; i++) {
                 read(fd, &res, sizeof(int));
+                printf("in map: %d\n", res);
+                read(fd, &res, sizeof(int));
                 printf("Obj type: %d\n", res);
                 read(fd, &res, sizeof(int));
                 printf("Frame: %d\n", res);
                 read(fd, &res, sizeof(int));
                 printf("Solidity: %d\n", res);
-		read(fd, &res, sizeof(int));
+		            read(fd, &res, sizeof(int));
                 printf("Destructible: %d\n", res);
-		read(fd, &res, sizeof(int));
+                read(fd, &res, sizeof(int));
                 printf("Collectible: %d\n", res);
                 read(fd, &res, sizeof(int));
                 printf("Generator: %d\n", res);
