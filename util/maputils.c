@@ -69,10 +69,10 @@ struct liste_s{
 enum { WIDTH=0, HEIGHT, MAX_OBJ, NB_OBJ, OBJ_INFO, MATRIX };
 
 void help(){
-        printf("--getwidth\n" 
-               "--getheight\n" 
-               "--getobjects\n" 
-               "--getinfo\n"		      
+        printf("--getwidth\n"
+               "--getheight\n"
+               "--getobjects\n"
+               "--getinfo\n"
                "--setwidth\n"
 	       "--setheight\n"
                "--setobjects\n");
@@ -128,14 +128,14 @@ void set_width(int fd, int new_width)
         matrix_position = lseek(fd, 0, SEEK_CUR); // On recupere la position de la matrix pour ne pas avoir a la recalculer
 
 	int map_matrix[width][height];
-	
+
 	for(int y = 0; y < height; y++){
 	  for(int x = 0; x < width; x++){
 	    ret = read(fd, &map_matrix[x][y], sizeof(int));
 	  }
 	}
 
-	
+
         lseek(fd, matrix_position, SEEK_SET);
 
 
@@ -157,13 +157,6 @@ void set_width(int fd, int new_width)
         }
 
 	if(diff_width >= 0) new_matrix[width-1][height-1] = map_matrix[width-1][height-1];
-
-	for(int y = 0; y<height; y++) {                // On initialise la matrice en placant le sol et les murs
-                for(int x = 0; x<new_width; x++) {
-		  printf(" %+d",new_matrix[x][y]);
-                }
-		printf("\n");
-        }
 
         ftruncate(fd,matrix_position);
 
@@ -309,7 +302,7 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
 	  int res;
 	  int ret = 1;
             int name_length;
-	    
+
             while (ret>0)
 	      {
 		ret = read(SaveFile, &res,sizeof(int));
@@ -522,7 +515,7 @@ void set_objects(int SaveFile, int nb_args, char *args[])
         write(SaveFile, &nb_objs_new, sizeof(unsigned));
 
         lseek(SaveFile, 0, SEEK_END);
-	
+
         /* Restore the 2D Matrix */
         for (int y=0 ; y<height ; y++){
             for (int x=0 ; x<width ; x++){
@@ -607,7 +600,7 @@ int main(int argc, char* argv[]){
 
 		  set_objects(fd,argc,argv);
 		  break;
-		  
+
                 }
                 break;
         }
