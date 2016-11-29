@@ -19,6 +19,8 @@
 #define SET_WIDTH    16
 #define SET_HEIGHT   32
 #define SET_OBJECTS  64
+#define ADD_OBJECTS  128
+#define PRUNE_OBJ    256
 
 /*int getopt_long_only(int argc, char * const argv[],
                   const char *optstring,
@@ -75,7 +77,9 @@ void help(){
                "--getinfo\n"
                "--setwidth\n"
 	       "--setheight\n"
-               "--setobjects\n");
+               "--setobjects\n"
+               "--addobjects\n"
+               "--pruneobjects\n");
 }
 
 
@@ -281,7 +285,96 @@ void get_obj_info(int fd)
                 read(fd, &str, res*sizeof(char));
                 printf("Name : %s\n\n", str);
         }
-        lseek(fd, 0, SEEK_SET);
+        lseek(fd, 0, SEEK_SET);         
+}
+
+void prune_obj(int SaveFile){
+    unsigned nb_objs;
+    lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
+    read(SaveFile, &nb_objs, sizeof(unsigned));
+
+    unsigned width  = get_width_value(SaveFile);
+    unsigned height = get_height_value(SaveFile);
+    int matrix[width][height];
+
+    go_to_matrix(SaveFile,width,height);
+    int matrix_pos = lseek(SaveFile, 0, SEEK_CUR);
+
+    for (int y=0 ; y<height ; y++){
+        for (int x=0 ; x<width ; x++){
+            read(SaveFile, &matrix[x][y], sizeof(int));
+            printf(" %+d",matrix[x][y]);
+        }
+        printf("\n");
+    }
+    ftruncate(SaveFile,matrix_pos);
+
+    lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+    Object_s objs[nb_objs];
+    int ret;
+    for (int i=0 ; i<nb_objs ; i++) {
+      ret = read(SaveFile, &objs[i].found,        sizeof(int));
+      ret = read(SaveFile, &objs[i].type,         sizeof(int));
+      ret = read(SaveFile, &objs[i].frame,        sizeof(int));
+      ret = read(SaveFile, &objs[i].solidity,     sizeof(int));
+      ret = read(SaveFile, &objs[i].destructible, sizeof(int));
+      ret = read(SaveFile, &objs[i].collectible,  sizeof(int));
+      ret = read(SaveFile, &objs[i].generator,    sizeof(int));
+      ret = read(SaveFile, &objs[i].name_length,  sizeof(int));
+      objs[i].name = malloc(objs[i].name_length * sizeof(char));
+      ret = read(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
+      if (ret < 0) perror("Error during reading Object_s carac");
+    }
+
+    int nb_in_map = 0;
+    for(int i = 0; i < nb_objs; i++){
+        if(objs[i].found == 1) nb_in_map++;
+    }
+
+    Object_s new_objs[nb_in_map];
+    for(int i = 0, j = 0; i < nb_objs; i++){
+        if(objs[i].found)
+        {
+            new_objs[j].collectible    =  objs[i].collectible;
+            new_objs[j].destructible   =  objs[i].destructible;
+            new_objs[j].found          =  objs[i].found;
+            new_objs[j].generator      =  objs[i].generator;
+            new_objs[j].solidity       =  objs[i].solidity;
+            new_objs[j].type           =  objs[i].type;
+            new_objs[j].frame          =  objs[i].frame;
+            new_objs[j].name_length    =  objs[i].name_length;
+            new_objs[j].name           =  malloc(new_objs[j].name_length * sizeof(char));
+            new_objs[j].name           =  objs[i].name;
+            j++;
+        }
+    }
+
+
+    lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
+    write(SaveFile, &nb_in_map, sizeof(int));
+    int obj_pos = lseek(SaveFile, 0, SEEK_CUR);
+    ftruncate(SaveFile,obj_pos);
+
+
+    for(int i = 0; i < nb_in_map ; i++){
+        ret = write(SaveFile, &new_objs[i].found,        sizeof(int));
+        ret = write(SaveFile, &new_objs[i].type,         sizeof(int));
+        ret = write(SaveFile, &new_objs[i].frame,        sizeof(int));
+        ret = write(SaveFile, &new_objs[i].solidity,     sizeof(int));
+        ret = write(SaveFile, &new_objs[i].destructible, sizeof(int));
+        ret = write(SaveFile, &new_objs[i].collectible,  sizeof(int));
+        ret = write(SaveFile, &new_objs[i].generator,    sizeof(int));
+        ret = write(SaveFile, &new_objs[i].name_length,  sizeof(int));
+        ret = write(SaveFile, new_objs[i].name,          new_objs[i].name_length * sizeof(char));
+        if (ret < 0) perror("Error during writing Object_s carac");
+    }
+
+    for (int y=0 ; y<height ; y++){
+        for (int x=0 ; x<width ; x++){
+            write(SaveFile, &matrix[x][y], sizeof(int));
+        }
+    }
+
 }
 
 void get_info(int fd)
@@ -301,6 +394,7 @@ Otherwise the new object is appended in edition-mode only (found flag set to fal
 
 bool object_in_savefile(int SaveFile, int index, char *args[])
         {
+          printf("je rentre dans objects savefile avec %s \n",args[index]);
 	  int res;
 	  int ret = 1;
             int name_length;
@@ -313,14 +407,22 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
 		  read(SaveFile, &name_length, sizeof(int));
 		  char *sprite = malloc(name_length * sizeof(char));
 		  read(SaveFile, sprite, name_length *sizeof(char));
-		  if (strcmp(args[index], sprite) == 0)
-		    return true;
+                  printf(" comparaison entre %s et %s :", args[index],sprite);
+                  if (strcmp(args[index], sprite) == 0){
+                       printf(" true\n");
+                       return true;
+                  }
+                  else printf(" false\n");
 		}
 	      }
             return false;
         }
 
-void set_objects(int SaveFile, int nb_args, char *args[])
+void set_objects(int SaveFile, int nb_args, char* args[]){
+
+}
+
+void add_objects(int SaveFile, int nb_args, char *args[])
 {
 
         unsigned nb_objs;
@@ -338,9 +440,7 @@ void set_objects(int SaveFile, int nb_args, char *args[])
         for (int y=0 ; y<height ; y++){
             for (int x=0 ; x<width ; x++){
                 read(SaveFile, &matrix[x][y], sizeof(int));
-                printf("%+d ",matrix[x][y]);
             }
-            printf("\n");
         }
 
         ftruncate(SaveFile,matrix_pos);
@@ -366,12 +466,16 @@ void set_objects(int SaveFile, int nb_args, char *args[])
 	liste_s *current = malloc(sizeof(liste_s));
 	liste_s *first = malloc(sizeof(liste_s));
 
-	lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+
 	int new_obj = 0;
         for (int i=3 ; i<nb_args ; i += 6)
         {
-            if (!object_in_savefile(SaveFile, i,args))
+            lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+            bool in_savefile = object_in_savefile(SaveFile, i,args);
+            printf(" i = %d avec savefile = %s \n",i,in_savefile ? "true":"false");
+            if (!in_savefile)
             {
+
                 if(test){
                     first -> suivant = NULL;
                     current = first ;
@@ -439,20 +543,6 @@ void set_objects(int SaveFile, int nb_args, char *args[])
 
         current = first;
 
-        /*while(current != NULL){
-            printf("in game: %d\n", current->obj.found);
-            printf("Obj type: %d\n", current->obj.type);
-            printf("Frame: %d\n", current->obj.frame);
-            printf("Solidity: %d\n", current->obj.solidity);
-            printf("Destructible: %d\n", current->obj.destructible);
-            printf("Collectible: %d\n", current->obj.collectible);
-            printf("Generator: %d\n", current->obj.generator);
-            printf("Name length: %d\n", current->obj.name_length);
-            printf("Name : %s\n\n", current->obj.name);
-            if(current->suivant == NULL) break;
-            current = current->suivant;
-        }*/
-
        	Object_s objs_new[nb_objs + new_obj];
 	for (int i=0 ; i<nb_objs ; i++) {
 	  objs_new[i].found = objs[i].found;
@@ -499,18 +589,6 @@ void set_objects(int SaveFile, int nb_args, char *args[])
 
         int nb_objs_new = nb_objs + new_obj;
 
-        for (int i=0; i<nb_objs_new; i++) {
-                printf("in game: %d\n", objs_new[i].found);
-                printf("Obj type: %d\n", objs_new[i].type);
-                printf("Frame: %d\n", objs_new[i].frame);
-                printf("Solidity: %d\n", objs_new[i].solidity);
-                printf("Destructible: %d\n", objs_new[i].destructible);
-                printf("Collectible: %d\n", objs_new[i].collectible);
-                printf("Generator: %d\n", objs_new[i].generator);
-                printf("Name length: %d\n", objs_new[i].name_length);
-                printf("Name : %s\n\n", objs_new[i].name);
-        }
-
         /* Overwrite Max obj & Nb obj */
         lseek(SaveFile, MAX_OBJ * sizeof(unsigned), SEEK_SET);
         write(SaveFile, &nb_objs_new, sizeof(unsigned));
@@ -522,9 +600,7 @@ void set_objects(int SaveFile, int nb_args, char *args[])
         for (int y=0 ; y<height ; y++){
             for (int x=0 ; x<width ; x++){
                 write(SaveFile, &matrix[x][y], sizeof(int));
-                printf("%+d ",matrix[x][y]);
             }
-            printf("\n");
         }
 
 
@@ -556,6 +632,8 @@ int main(int argc, char* argv[]){
                         {"setwidth",    required_argument,   0,   SET_WIDTH},
                         {"setheight",   required_argument,   0,   SET_HEIGHT},
 			{"setobjects",  required_argument,   0,   SET_OBJECTS},
+                        {"addobjects",  required_argument,   0,   ADD_OBJECTS},
+                        {"pruneobjects",no_argument,         0,   PRUNE_OBJ},
                         {0,             0,                   0,   HELP }
 
                 };
@@ -602,8 +680,17 @@ int main(int argc, char* argv[]){
 
 		  set_objects(fd,argc,argv);
 		  break;
+                case ADD_OBJECTS:
 
+                  add_objects(fd,argc,argv);
+                  break;
+
+                case PRUNE_OBJ:
+
+                   prune_obj(fd);
+                    break;
                 }
+
                 break;
         }
         return EXIT_SUCCESS;
