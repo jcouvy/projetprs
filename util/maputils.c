@@ -69,21 +69,16 @@ struct liste_s{
 enum { WIDTH=0, HEIGHT, MAX_OBJ, NB_OBJ, OBJ_INFO, MATRIX };
 
 void help(){
-        printf("--getwidth\n --getheight\n \
-  --getobjects\n --getinfo\n	    \
---setwidth\n --setheight\n");
+        printf("--getwidth\n" 
+               "--getheight\n" 
+               "--getobjects\n" 
+               "--getinfo\n"		      
+               "--setwidth\n"
+	       "--setheight\n"
+               "--setobjects\n");
 }
 
 
-
-struct object_map
-{
-        int x;
-        int y;
-        int num_object;
-        object_map *next;
-
-};
 
 //renvoie valeur width de la map
 int get_width_value(int fd)
@@ -106,53 +101,6 @@ int get_height_value(int fd)
         return res;
 }
 
-//Cree une liste des objets présent sur la map
-
-object_map *create_object_map(int fd, int width, int height)
-{
-
-        int matrix[width][height];
-        int ret;
-        bool test = false;
-
-        object_map *first_tab_object = malloc(sizeof(object_map));
-        object_map *current_object   = malloc(sizeof(object_map));
-
-        for (int y = 0; y<height; y++) {
-
-                for (int x = 0; x<width; x++) {
-
-                        if (test == false) {                        //Tant qu'on a pas de premier objet trouvé
-                                ret = read(fd, &matrix[x][y], sizeof(int));
-                                if (ret < 0) perror("Error during reading Object_s carac");
-                                if (matrix[x][y] != -1 && x!=width-1) {
-                                        first_tab_object->x = x;
-                                        first_tab_object->y = y;
-                                        first_tab_object->num_object = matrix[x][y];
-                                        first_tab_object->next = NULL;
-                                        current_object = first_tab_object;
-                                        test = true;
-                                }
-                        }
-                        else{
-			      ret = read(fd, &matrix[x][y], sizeof(int)); //On ajoute a la liste les objets 1 par 1
-			      if (ret < 0) perror("Error during reading Object_s carac");
-			      if (matrix[x][y] != -1 && x < width -1 ) { // cherche les objets de  la map
-                                  
-			         object_map *new_object = malloc(sizeof(object_map));
-			         new_object->x = x;
-			         new_object->y = y;
-				 new_object->num_object = matrix[x][y];
-				 new_object->next = NULL;
-				 current_object->next = new_object;
-				 current_object = new_object;
-			      }
-                        }
-                }
-        }
-
-        return first_tab_object;
-}
 
 
 //Place le curseur dans le fichier fd a la matrice !
@@ -179,42 +127,52 @@ void set_width(int fd, int new_width)
         go_to_matrix(fd, width, height);
         matrix_position = lseek(fd, 0, SEEK_CUR); // On recupere la position de la matrix pour ne pas avoir a la recalculer
 
-        object_map *first_tab_object = create_object_map(fd,width,height);
+	int map_matrix[width][height];
+	
+	for(int y = 0; y < height; y++){
+	  for(int x = 0; x < width; x++){
+	    ret = read(fd, &map_matrix[x][y], sizeof(int));
+	  }
+	}
 
-
+	
         lseek(fd, matrix_position, SEEK_SET);
 
 
-        int matrix[new_width][height];
+        int new_matrix[new_width][height];
 
         for(int y = 0; y<height; y++) {                // On initialise la matrice en placant le sol et les murs
                 for(int x = 0; x<new_width; x++) {
-                        matrix[x][y] = -1;
+                        new_matrix[x][y] = -1;
                 }
         }
 
+	int diff_width = new_width - width;
 
-        while(first_tab_object->next != NULL) {    // On place les objets dans la map
-                int x = first_tab_object->x;
-                int y = first_tab_object->y;
-                int num_object = first_tab_object->num_object;
-                if (x < new_width-1)
-                    matrix[x][y] = num_object;  // uniquement les objets qui doivent rester ( < new_width )
-                else if (x == new_width-1 && y == height-1)
-                    matrix[x][y] = num_object;
-                first_tab_object = first_tab_object->next;
+	for(int y = 0; y<height; y++) {                // On initialise la matrice en placant le sol et les murs
+                for(int x = 0; x<width-1; x++) {
+		  if(diff_width >= 0) new_matrix[x][y] = map_matrix[x][y];
+		  else if( x < new_width ) new_matrix[x][y] = map_matrix[x][y];
+                }
         }
 
-        lseek(fd, matrix_position, SEEK_SET);
+	if(diff_width >= 0) new_matrix[width-1][height-1] = map_matrix[width-1][height-1];
+
+	for(int y = 0; y<height; y++) {                // On initialise la matrice en placant le sol et les murs
+                for(int x = 0; x<new_width; x++) {
+		  printf(" %+d",new_matrix[x][y]);
+                }
+		printf("\n");
+        }
 
         ftruncate(fd,matrix_position);
 
         for (int y=0; y<height; y++) {
                 for (int x=0; x<new_width; x++) {
-                        ret = write(fd, &matrix[x][y], sizeof(int));
+                        ret = write(fd, &new_matrix[x][y], sizeof(int));
                         if (ret < 0) perror("Error writing 2D matrix");
                 }
-        }
+	}
 
 }
 
@@ -232,40 +190,40 @@ void set_height(int fd, int new_height)
         go_to_matrix(fd, width, height);
         matrix_position = lseek(fd, 0, SEEK_CUR);
 
+	int map_matrix[width][height];
 
-        object_map *first_tab_object = create_object_map(fd,width,height);
+	for(int y = 0; y < height; y++){
+	  for(int x = 0; x < width; x++){
+	    ret = read(fd, &map_matrix[x][y], sizeof(int));
+	  }
+	}
+
 
         lseek(fd, matrix_position, SEEK_SET);
 
-        int matrix[width][new_height];
+        int new_matrix[width][new_height];
 
         for(int y = 0; y<new_height; y++) {
                 for(int x = 0; x<width; x++) {
-                        matrix[x][y] = -1;
+                        new_matrix[x][y] = -1;
                 }
         }
 
-        int diff_height = new_height - height;
+	int diff_height = new_height - height;
 
-        while(first_tab_object->next != NULL) {
-                int x = first_tab_object->x;
-                int y = first_tab_object->y;
-                int num_object = first_tab_object->num_object;
-                if (diff_height>=0)
-                    matrix[x][y + diff_height] = num_object;
-                else if(diff_height<0 && y> (-diff_height-1))
-                    matrix[x][y + diff_height] = num_object;
-                first_tab_object = first_tab_object->next;
-
-        }
-
-        lseek(fd, matrix_position, SEEK_SET);
+	for(int y = 0; y < height; y++){
+	  for(int x = 0; x < width; x++){
+	    if (diff_height >= 0) new_matrix[x][y + diff_height] = map_matrix[x][y];
+	    else if(y > (-diff_height - 1)) new_matrix[x][y + diff_height] = map_matrix[x][y];
+	  }
+	}
 
         ftruncate(fd,matrix_position);
 
+
         for (int y=0; y<new_height; y++) {
                 for (int x=0; x<width; x++) {
-                        ret = write(fd, &matrix[x][y], sizeof(int));
+                        ret = write(fd, &new_matrix[x][y], sizeof(int));
                         if (ret < 0) perror("Error writing 2D matrix");
                 }
         }
