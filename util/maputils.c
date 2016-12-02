@@ -114,6 +114,56 @@ void go_to_matrix(int fd, int width, int height)
     lseek(fd, offset * sizeof(int), SEEK_END);
 }
 
+void copy_struct_objects(Object_s *src, Object_s *dest, int start, int end){
+    for(int i = start; i < end; i++){
+        dest[i].found = src[i].found;
+        dest[i].type = src[i].type;
+        dest[i].frame = src[i].frame;
+        dest[i].solidity = src[i].solidity;
+        dest[i].destructible = src[i].destructible;
+        dest[i].collectible = src[i].collectible;
+        dest[i].generator = src[i].generator;
+        dest[i].name_length = src[i].name_length;
+        dest[i].name = malloc(dest[i].name_length * sizeof(char));
+        dest[i].name = src[i].name;
+    }
+}
+
+Object_s *read_savefile_objects(int SaveFile, int nb_objs){
+
+   Object_s *objs = malloc(sizeof(Object_s) * nb_objs);
+   int ret;
+   for (int i=0 ; i<nb_objs ; i++) {
+     ret = read(SaveFile, &objs[i].found,        sizeof(int));
+     ret = read(SaveFile, &objs[i].type,         sizeof(int));
+     ret = read(SaveFile, &objs[i].frame,        sizeof(int));
+     ret = read(SaveFile, &objs[i].solidity,     sizeof(int));
+     ret = read(SaveFile, &objs[i].destructible, sizeof(int));
+     ret = read(SaveFile, &objs[i].collectible,  sizeof(int));
+     ret = read(SaveFile, &objs[i].generator,    sizeof(int));
+     ret = read(SaveFile, &objs[i].name_length,  sizeof(int));
+     objs[i].name = malloc(objs[i].name_length * sizeof(char));
+     ret = read(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
+     if (ret < 0) perror("Error during reading Object_s carac");
+   }
+   return objs;
+}
+
+void write_savefile_objects(int SaveFile,Object_s *objs,int nb_objs){
+   int ret;
+   for (int i=0 ; i<nb_objs ; i++) {
+     ret = write(SaveFile, &objs[i].found,        sizeof(int));
+     ret = write(SaveFile, &objs[i].type,         sizeof(int));
+     ret = write(SaveFile, &objs[i].frame,        sizeof(int));
+     ret = write(SaveFile, &objs[i].solidity,     sizeof(int));
+     ret = write(SaveFile, &objs[i].destructible, sizeof(int));
+     ret = write(SaveFile, &objs[i].collectible,  sizeof(int));
+     ret = write(SaveFile, &objs[i].generator,    sizeof(int));
+     ret = write(SaveFile, &objs[i].name_length,  sizeof(int));
+     ret = write(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
+     if (ret < 0) perror("Error during reading Object_s carac");
+   }
+}
 
 
 void set_width(int fd, int new_width)
@@ -227,6 +277,248 @@ void set_height(int fd, int new_height)
 
 }
 
+bool object_in_savefile(int SaveFile, int index, char *args[])
+        {
+
+          int res;
+          int ret = 1;
+            int name_length;
+
+            while (ret>0)
+              {
+                ret = read(SaveFile, &res,sizeof(int));
+                if(ret >0){
+                  lseek(SaveFile,6 * sizeof(int),SEEK_CUR);
+                  read(SaveFile, &name_length, sizeof(int));
+                  char *sprite = malloc(name_length * sizeof(char));
+                  read(SaveFile, sprite, name_length *sizeof(char));
+                  if (strcmp(args[index], sprite) == 0){
+                       return true;
+                  }
+                }
+              }
+            return false;
+        }
+
+void set_objects(int SaveFile, int nb_args, char* args[]){
+
+}
+
+void add_objects(int SaveFile, int nb_args, char *args[])
+{
+
+        unsigned nb_objs;
+        lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
+        read(SaveFile, &nb_objs, sizeof(unsigned));
+
+        unsigned width   = get_width_value(SaveFile);
+        unsigned height  = get_height_value(SaveFile);
+        int matrix[width][height];
+
+        /* Truncate and save the 2D Matrix */
+        go_to_matrix(SaveFile, width, height);
+        int matrix_pos = lseek(SaveFile, 0, SEEK_CUR);
+
+        for (int y=0 ; y<height ; y++){
+            for (int x=0 ; x<width ; x++){
+                read(SaveFile, &matrix[x][y], sizeof(int));
+            }
+        }
+
+        ftruncate(SaveFile,matrix_pos);
+        lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+
+        Object_s *objs = read_savefile_objects(SaveFile,nb_objs);
+
+        bool test = true;
+        liste_s *current = malloc(sizeof(liste_s));
+        liste_s *first = malloc(sizeof(liste_s));
+
+
+        int new_obj = 0;
+        for (int i=3 ; i<nb_args ; i += 6)
+        {
+            lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+            bool in_savefile = object_in_savefile(SaveFile, i,args);
+
+            if (!in_savefile)
+            {
+
+                if(test){
+                    first -> suivant = NULL;
+                    current = first ;
+                    test = false;
+                }
+                else{
+                    liste_s *new_obj = malloc(sizeof(liste_s));
+                    new_obj->suivant = NULL;
+                    current->suivant = new_obj;
+                    current = new_obj;
+                }
+                int val = atoi(args[i+1]);
+                /*write(SaveFile, false, sizeof(int));  // Found flag
+                write(SaveFile, &nb_objs, sizeof(int));  // Type = obj index
+                write(SaveFile, &val, sizeof(int)); // Frame*/
+
+                current-> obj.found = false;
+                if(test)current -> obj.type  = 2;
+                else current -> obj.type = nb_objs;
+                current -> obj.frame = val;
+
+                if   (strcmp("solid", args[i+2]) == 0) current->obj.solidity = 2;
+                else if (strcmp("semi-solid", args[i+2]) == 0) current->obj.solidity = 1;
+                else if (strcmp("air", args[i+2]) == 0) current->obj.solidity = 0;
+                else {
+                    perror("Wrong solidity argument !");
+                    exit(EXIT_FAILURE);
+                }
+                //write(SaveFile, &val, sizeof(int));
+
+                if   (strcmp("destructible", args[i+3]) == 0) current->obj.destructible = 4;
+                else if (strcmp("not-destructible", args[i+3]) == 0) current->obj.destructible = 0;
+                else {
+                    perror("Wrong destructibiliy argument !");
+                    exit(EXIT_FAILURE);
+                }
+                //write(SaveFile, &val, sizeof(int));
+
+                if   (strcmp("collectible", args[i+4]) == 0) current->obj.collectible = 8;
+                else if (strcmp("not-collectible", args[i+4]) == 0) current->obj.collectible = 0;
+                else {
+                    perror("Wrong collectibility argument !");
+                    exit(EXIT_FAILURE);
+                }
+                //write(SaveFile, &val, sizeof(int));
+
+                if   (strcmp("generator", args[i+5]) == 0) current->obj.generator = 16;
+                else if (strcmp("not-generator", args[i+5]) == 0) current->obj.generator = 0;
+                else {
+                    perror("Wrong generator argument !");
+                    exit(EXIT_FAILURE);
+                }
+                //write(SaveFile, &val, sizeof(int));
+
+                int name_length = strlen(args[i]) + 1;
+                /*write(SaveFile, &name_length, sizeof(int));
+                  write(SaveFile, args[i], sizeof(name_length));*/
+
+                current->obj.name_length = name_length;
+                current->obj.name = malloc(name_length* sizeof(char));
+                current->obj.name = args[i];
+                new_obj++;
+            }
+        }
+
+        current = first;
+
+        int nb_objs_new = nb_objs + new_obj;
+
+        Object_s *objs_new = malloc(sizeof(Object_s) * nb_objs_new);
+
+        copy_struct_objects(objs,objs_new,0,nb_objs);
+
+        for( int j = nb_objs; j < nb_objs + new_obj; ++j){
+          objs_new[j].found = current->obj.found;
+          objs_new[j].type = current->obj.type;
+          objs_new[j].frame = current->obj.frame;
+          objs_new[j].solidity = current->obj.solidity;
+          objs_new[j].destructible = current->obj.destructible;
+          objs_new[j].collectible = current->obj.collectible;
+          objs_new[j].generator = current->obj.generator;
+          objs_new[j].name_length = current->obj.name_length;
+          objs_new[j].name = malloc(objs_new[j].name_length * sizeof(char));
+          objs_new[j].name = current->obj.name;
+          if( current -> suivant != NULL) current = current -> suivant;
+        }
+
+        lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+        /*int trunc = lseek(SaveFile, 0, SEEK_CUR);
+        ftruncate(SaveFile, trunc);*/
+
+        write_savefile_objects(SaveFile,objs_new,nb_objs_new);
+
+        /* Overwrite Max obj & Nb obj */
+        lseek(SaveFile, MAX_OBJ * sizeof(unsigned), SEEK_SET);
+        write(SaveFile, &nb_objs_new, sizeof(unsigned));
+        write(SaveFile, &nb_objs_new, sizeof(unsigned));
+
+        lseek(SaveFile, 0, SEEK_END);
+
+        /* Restore the 2D Matrix */
+        for (int y=0 ; y<height ; y++){
+            for (int x=0 ; x<width ; x++){
+                write(SaveFile, &matrix[x][y], sizeof(int));
+            }
+        }
+
+
+}
+
+void prune_obj(int SaveFile){
+    unsigned nb_objs;
+    lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
+    read(SaveFile, &nb_objs, sizeof(unsigned));
+
+    unsigned width  = get_width_value(SaveFile);
+    unsigned height = get_height_value(SaveFile);
+    int matrix[width][height];
+
+    go_to_matrix(SaveFile,width,height);
+    int matrix_pos = lseek(SaveFile, 0, SEEK_CUR);
+
+    for (int y=0 ; y<height ; y++){
+        for (int x=0 ; x<width ; x++){
+            read(SaveFile, &matrix[x][y], sizeof(int));
+        }
+    }
+    ftruncate(SaveFile,matrix_pos);
+
+    lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
+    Object_s *objs = read_savefile_objects(SaveFile, nb_objs);
+
+    int nb_in_map = 0;
+    for(int i = 0; i < nb_objs; i++){
+        if(objs[i].found == 1) nb_in_map++;
+    }
+
+    Object_s *new_objs = malloc(sizeof(Object_s) * nb_in_map);
+
+    for(int i = 0, j = 0; i < nb_objs; i++){
+        if(objs[i].found)
+        {
+            new_objs[j].collectible    =  objs[i].collectible;
+            new_objs[j].destructible   =  objs[i].destructible;
+            new_objs[j].found          =  objs[i].found;
+            new_objs[j].generator      =  objs[i].generator;
+            new_objs[j].solidity       =  objs[i].solidity;
+            new_objs[j].type           =  objs[i].type;
+            new_objs[j].frame          =  objs[i].frame;
+            new_objs[j].name_length    =  objs[i].name_length;
+            new_objs[j].name           =  malloc(new_objs[j].name_length * sizeof(char));
+            new_objs[j].name           =  objs[i].name;
+            j++;
+        }
+    }
+
+
+    lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
+
+    write(SaveFile, &nb_in_map, sizeof(int));
+
+    int obj_pos = lseek(SaveFile, 0, SEEK_CUR);
+    ftruncate(SaveFile,obj_pos);
+
+    write_savefile_objects(SaveFile,new_objs,nb_in_map);
+
+
+    for (int y=0 ; y<height ; y++){
+        for (int x=0 ; x<width ; x++){
+            write(SaveFile, &matrix[x][y], sizeof(int));
+        }
+    }
+
+}
+
 
 void get_width(int fd)
 {
@@ -288,95 +580,6 @@ void get_obj_info(int fd)
         lseek(fd, 0, SEEK_SET);         
 }
 
-void prune_obj(int SaveFile){
-    unsigned nb_objs;
-    lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
-    read(SaveFile, &nb_objs, sizeof(unsigned));
-
-    unsigned width  = get_width_value(SaveFile);
-    unsigned height = get_height_value(SaveFile);
-    int matrix[width][height];
-
-    go_to_matrix(SaveFile,width,height);
-    int matrix_pos = lseek(SaveFile, 0, SEEK_CUR);
-
-    for (int y=0 ; y<height ; y++){
-        for (int x=0 ; x<width ; x++){
-            read(SaveFile, &matrix[x][y], sizeof(int));
-            printf(" %+d",matrix[x][y]);
-        }
-        printf("\n");
-    }
-    ftruncate(SaveFile,matrix_pos);
-
-    lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
-    Object_s objs[nb_objs];
-    int ret;
-    for (int i=0 ; i<nb_objs ; i++) {
-      ret = read(SaveFile, &objs[i].found,        sizeof(int));
-      ret = read(SaveFile, &objs[i].type,         sizeof(int));
-      ret = read(SaveFile, &objs[i].frame,        sizeof(int));
-      ret = read(SaveFile, &objs[i].solidity,     sizeof(int));
-      ret = read(SaveFile, &objs[i].destructible, sizeof(int));
-      ret = read(SaveFile, &objs[i].collectible,  sizeof(int));
-      ret = read(SaveFile, &objs[i].generator,    sizeof(int));
-      ret = read(SaveFile, &objs[i].name_length,  sizeof(int));
-      objs[i].name = malloc(objs[i].name_length * sizeof(char));
-      ret = read(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
-      if (ret < 0) perror("Error during reading Object_s carac");
-    }
-
-    int nb_in_map = 0;
-    for(int i = 0; i < nb_objs; i++){
-        if(objs[i].found == 1) nb_in_map++;
-    }
-
-    Object_s new_objs[nb_in_map];
-    for(int i = 0, j = 0; i < nb_objs; i++){
-        if(objs[i].found)
-        {
-            new_objs[j].collectible    =  objs[i].collectible;
-            new_objs[j].destructible   =  objs[i].destructible;
-            new_objs[j].found          =  objs[i].found;
-            new_objs[j].generator      =  objs[i].generator;
-            new_objs[j].solidity       =  objs[i].solidity;
-            new_objs[j].type           =  objs[i].type;
-            new_objs[j].frame          =  objs[i].frame;
-            new_objs[j].name_length    =  objs[i].name_length;
-            new_objs[j].name           =  malloc(new_objs[j].name_length * sizeof(char));
-            new_objs[j].name           =  objs[i].name;
-            j++;
-        }
-    }
-
-
-    lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
-    write(SaveFile, &nb_in_map, sizeof(int));
-    int obj_pos = lseek(SaveFile, 0, SEEK_CUR);
-    ftruncate(SaveFile,obj_pos);
-
-
-    for(int i = 0; i < nb_in_map ; i++){
-        ret = write(SaveFile, &new_objs[i].found,        sizeof(int));
-        ret = write(SaveFile, &new_objs[i].type,         sizeof(int));
-        ret = write(SaveFile, &new_objs[i].frame,        sizeof(int));
-        ret = write(SaveFile, &new_objs[i].solidity,     sizeof(int));
-        ret = write(SaveFile, &new_objs[i].destructible, sizeof(int));
-        ret = write(SaveFile, &new_objs[i].collectible,  sizeof(int));
-        ret = write(SaveFile, &new_objs[i].generator,    sizeof(int));
-        ret = write(SaveFile, &new_objs[i].name_length,  sizeof(int));
-        ret = write(SaveFile, new_objs[i].name,          new_objs[i].name_length * sizeof(char));
-        if (ret < 0) perror("Error during writing Object_s carac");
-    }
-
-    for (int y=0 ; y<height ; y++){
-        for (int x=0 ; x<width ; x++){
-            write(SaveFile, &matrix[x][y], sizeof(int));
-        }
-    }
-
-}
-
 void get_info(int fd)
 {
         get_width(fd);
@@ -392,219 +595,9 @@ If the object is already present in the map the savegame isn't modified.
 Otherwise the new object is appended in edition-mode only (found flag set to false).
 */
 
-bool object_in_savefile(int SaveFile, int index, char *args[])
-        {
-          printf("je rentre dans objects savefile avec %s \n",args[index]);
-	  int res;
-	  int ret = 1;
-            int name_length;
-
-            while (ret>0)
-	      {
-		ret = read(SaveFile, &res,sizeof(int));
-		if(ret >0){
-		  lseek(SaveFile,6 * sizeof(int),SEEK_CUR);
-		  read(SaveFile, &name_length, sizeof(int));
-		  char *sprite = malloc(name_length * sizeof(char));
-		  read(SaveFile, sprite, name_length *sizeof(char));
-                  printf(" comparaison entre %s et %s :", args[index],sprite);
-                  if (strcmp(args[index], sprite) == 0){
-                       printf(" true\n");
-                       return true;
-                  }
-                  else printf(" false\n");
-		}
-	      }
-            return false;
-        }
-
-void set_objects(int SaveFile, int nb_args, char* args[]){
-
-}
-
-void add_objects(int SaveFile, int nb_args, char *args[])
-{
-
-        unsigned nb_objs;
-        lseek(SaveFile, NB_OBJ * sizeof(unsigned), SEEK_SET);
-        read(SaveFile, &nb_objs, sizeof(unsigned));
-
-        unsigned width   = get_width_value(SaveFile);
-        unsigned height  = get_height_value(SaveFile);
-        int matrix[width][height];
-
-        /* Truncate and save the 2D Matrix */
-        go_to_matrix(SaveFile, width, height);
-        int matrix_pos = lseek(SaveFile, 0, SEEK_CUR);
-
-        for (int y=0 ; y<height ; y++){
-            for (int x=0 ; x<width ; x++){
-                read(SaveFile, &matrix[x][y], sizeof(int));
-            }
-        }
-
-        ftruncate(SaveFile,matrix_pos);
-        lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
-
-	Object_s objs[nb_objs];
-	int ret;
-	for (int i=0 ; i<nb_objs ; i++) {
-	  ret = read(SaveFile, &objs[i].found,        sizeof(int));
-	  ret = read(SaveFile, &objs[i].type,         sizeof(int));
-	  ret = read(SaveFile, &objs[i].frame,        sizeof(int));
-	  ret = read(SaveFile, &objs[i].solidity,     sizeof(int));
-	  ret = read(SaveFile, &objs[i].destructible, sizeof(int));
-	  ret = read(SaveFile, &objs[i].collectible,  sizeof(int));
-	  ret = read(SaveFile, &objs[i].generator,    sizeof(int));
-	  ret = read(SaveFile, &objs[i].name_length,  sizeof(int));
-	  objs[i].name = malloc(objs[i].name_length * sizeof(char));
-	  ret = read(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
-	  if (ret < 0) perror("Error during reading Object_s carac");
-	}
-
-	bool test = true;
-	liste_s *current = malloc(sizeof(liste_s));
-	liste_s *first = malloc(sizeof(liste_s));
 
 
-	int new_obj = 0;
-        for (int i=3 ; i<nb_args ; i += 6)
-        {
-            lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
-            bool in_savefile = object_in_savefile(SaveFile, i,args);
-            printf(" i = %d avec savefile = %s \n",i,in_savefile ? "true":"false");
-            if (!in_savefile)
-            {
 
-                if(test){
-                    first -> suivant = NULL;
-                    current = first ;
-                    test = false;
-                }
-                else{
-                    liste_s *new_obj = malloc(sizeof(liste_s));
-                    new_obj->suivant = NULL;
-                    current->suivant = new_obj;
-                    current = new_obj;
-                }
-                int val = atoi(args[i+1]);
-                /*write(SaveFile, false, sizeof(int));  // Found flag
-                write(SaveFile, &nb_objs, sizeof(int));  // Type = obj index
-                write(SaveFile, &val, sizeof(int)); // Frame*/
-
-                current-> obj.found = false;
-                if(test)current -> obj.type  = 2;
-		else current -> obj.type = nb_objs;
-                current -> obj.frame = val;
-
-                if   (strcmp("solid", args[i+2]) == 0) current->obj.solidity = 2;
-                else if (strcmp("semi-solid", args[i+2]) == 0) current->obj.solidity = 1;
-                else if (strcmp("air", args[i+2]) == 0) current->obj.solidity = 0;
-                else {
-                    perror("Wrong solidity argument !");
-                    exit(EXIT_FAILURE);
-                }
-                //write(SaveFile, &val, sizeof(int));
-
-                if   (strcmp("destructible", args[i+3]) == 0) current->obj.destructible = 4;
-                else if (strcmp("not-destructible", args[i+3]) == 0) current->obj.destructible = 0;
-                else {
-                    perror("Wrong destructibiliy argument !");
-                    exit(EXIT_FAILURE);
-                }
-                //write(SaveFile, &val, sizeof(int));
-
-                if   (strcmp("collectible", args[i+4]) == 0) current->obj.collectible = 8;
-                else if (strcmp("not-collectible", args[i+4]) == 0) current->obj.collectible = 0;
-                else {
-                    perror("Wrong collectibility argument !");
-                    exit(EXIT_FAILURE);
-                }
-                //write(SaveFile, &val, sizeof(int));
-
-                if   (strcmp("generator", args[i+5]) == 0) current->obj.generator = 16;
-                else if (strcmp("not-generator", args[i+5]) == 0) current->obj.generator = 0;
-                else {
-                    perror("Wrong generator argument !");
-                    exit(EXIT_FAILURE);
-                }
-                //write(SaveFile, &val, sizeof(int));
-
-                int name_length = strlen(args[i]) + 1;
-                /*write(SaveFile, &name_length, sizeof(int));
-		  write(SaveFile, args[i], sizeof(name_length));*/
-
-                current->obj.name_length = name_length;
-                current->obj.name = malloc(name_length* sizeof(char));
-                current->obj.name = args[i];
-                new_obj++;
-            }
-        }
-
-        current = first;
-
-       	Object_s objs_new[nb_objs + new_obj];
-	for (int i=0 ; i<nb_objs ; i++) {
-	  objs_new[i].found = objs[i].found;
-	  objs_new[i].type = objs[i].type;
-	  objs_new[i].frame = objs[i].frame;
-	  objs_new[i].solidity = objs[i].solidity;
-	  objs_new[i].destructible = objs[i].destructible;
-	  objs_new[i].collectible = objs[i].collectible;
-	  objs_new[i].generator = objs[i].generator;
-	  objs_new[i].name_length = objs[i].name_length;
-          objs_new[i].name = malloc(objs_new[i].name_length * sizeof(char));
-	  objs_new[i].name = objs[i].name;
-	}
-
-	for( int j = nb_objs; j < nb_objs + new_obj; ++j){
-          objs_new[j].found = current->obj.found;
-          objs_new[j].type = current->obj.type;
-          objs_new[j].frame = current->obj.frame;
-          objs_new[j].solidity = current->obj.solidity;
-          objs_new[j].destructible = current->obj.destructible;
-          objs_new[j].collectible = current->obj.collectible;
-          objs_new[j].generator = current->obj.generator;
-          objs_new[j].name_length = current->obj.name_length;
-          objs_new[j].name = malloc(objs_new[j].name_length * sizeof(char));
-          objs_new[j].name = current->obj.name;
-          if( current -> suivant != NULL) current = current -> suivant;
-	}
-
-        lseek(SaveFile, OBJ_INFO * sizeof(unsigned), SEEK_SET);
-        /*int trunc = lseek(SaveFile, 0, SEEK_CUR);
-        ftruncate(SaveFile, trunc);*/
-	for (int i = 0; i < nb_objs + new_obj; i++){
-	  ret = write(SaveFile, &objs_new[i].found,        sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].type,         sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].frame,        sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].solidity,     sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].destructible, sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].collectible,  sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].generator,    sizeof(int));
-	  ret = write(SaveFile, &objs_new[i].name_length,  sizeof(int));
-	  ret = write(SaveFile, objs_new[i].name,          objs_new[i].name_length * sizeof(char));
-	  if (ret < 0) perror("Error during writing Object_s carac");
-	}
-
-        int nb_objs_new = nb_objs + new_obj;
-
-        /* Overwrite Max obj & Nb obj */
-        lseek(SaveFile, MAX_OBJ * sizeof(unsigned), SEEK_SET);
-        write(SaveFile, &nb_objs_new, sizeof(unsigned));
-        write(SaveFile, &nb_objs_new, sizeof(unsigned));
-
-        lseek(SaveFile, 0, SEEK_END);
-
-        /* Restore the 2D Matrix */
-        for (int y=0 ; y<height ; y++){
-            for (int x=0 ; x<width ; x++){
-                write(SaveFile, &matrix[x][y], sizeof(int));
-            }
-        }
-
-
-}
 
 
 int main(int argc, char* argv[]){

@@ -125,6 +125,19 @@ void map_save(char *filename) {
         }
     }
 
+    for(int i = 0; i < map.nb_objects; i++)
+        printf(" %d\n", diff_types[i]);
+    /*for(int i = 0; i < map.nb_objects; i++){
+        int old_type = diff_types[i];
+        for (int y=0 ; y<map.height ; y++) {
+            for (int x=0 ; x<map.width ; x++) {
+                if(matrix[x][y] == old_type)
+                    matrix[x][y] = i;
+            }
+        }
+        diff_types[i] = i;
+    }*/
+
     ret = write(SaveFile, &map.nb_objects, sizeof(unsigned));
     if (ret < 0) perror("Error writing nb obj");
 
