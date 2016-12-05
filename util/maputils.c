@@ -114,19 +114,17 @@ void go_to_matrix(int fd, int width, int height)
     lseek(fd, offset * sizeof(int), SEEK_END);
 }
 
-void copy_struct_objects(Object_s *src, Object_s *dest, int start, int end){
-    for(int i = start; i < end; i++){
-        dest[i].found = src[i].found;
-        dest[i].type = src[i].type;
-        dest[i].frame = src[i].frame;
-        dest[i].solidity = src[i].solidity;
-        dest[i].destructible = src[i].destructible;
-        dest[i].collectible = src[i].collectible;
-        dest[i].generator = src[i].generator;
-        dest[i].name_length = src[i].name_length;
-        dest[i].name = malloc(dest[i].name_length * sizeof(char));
-        dest[i].name = src[i].name;
-    }
+void copy_struct_objects(Object_s *src, Object_s *dest, int i_src, int i_dst){
+        dest[i_dst].found = src[i_src].found;
+        dest[i_dst].type = src[i_src].type;
+        dest[i_dst].frame = src[i_src].frame;
+        dest[i_dst].solidity = src[i_src].solidity;
+        dest[i_dst].destructible = src[i_src].destructible;
+        dest[i_dst].collectible = src[i_src].collectible;
+        dest[i_dst].generator = src[i_src].generator;
+        dest[i_dst].name_length = src[i_src].name_length;
+        dest[i_dst].name = malloc(dest[i_dst].name_length * sizeof(char));
+        dest[i_dst].name = src[i_src].name;
 }
 
 Object_s *read_savefile_objects(int SaveFile, int nb_objs){
@@ -149,9 +147,8 @@ Object_s *read_savefile_objects(int SaveFile, int nb_objs){
    return objs;
 }
 
-void write_savefile_objects(int SaveFile,Object_s *objs,int nb_objs){
-   int ret;
-   for (int i=0 ; i<nb_objs ; i++) {
+void write_savefile_objects(int SaveFile,Object_s *objs,int i){
+     int ret;
      ret = write(SaveFile, &objs[i].found,        sizeof(int));
      ret = write(SaveFile, &objs[i].type,         sizeof(int));
      ret = write(SaveFile, &objs[i].frame,        sizeof(int));
@@ -162,7 +159,6 @@ void write_savefile_objects(int SaveFile,Object_s *objs,int nb_objs){
      ret = write(SaveFile, &objs[i].name_length,  sizeof(int));
      ret = write(SaveFile, objs[i].name,          objs[i].name_length * sizeof(char));
      if (ret < 0) perror("Error during reading Object_s carac");
-   }
 }
 
 
@@ -195,11 +191,9 @@ void set_width(int fd, int new_width)
 
         int new_matrix[new_width][height];
 
-        for(int y = 0; y<height; y++) {                // On initialise la matrice en placant le sol et les murs
-                for(int x = 0; x<new_width; x++) {
+        for(int y = 0; y<height; y++)                // On initialise la matrice en placant le sol et les murs
+                for(int x = 0; x<new_width; x++)
                         new_matrix[x][y] = -1;
-                }
-        }
 
 	int diff_width = new_width - width;
 
@@ -415,7 +409,8 @@ void add_objects(int SaveFile, int nb_args, char *args[])
 
         Object_s *objs_new = malloc(sizeof(Object_s) * nb_objs_new);
 
-        copy_struct_objects(objs,objs_new,0,nb_objs);
+        for(int i = 0; i < nb_objs; i++)
+            copy_struct_objects(objs,objs_new,i,i);
 
         for( int j = nb_objs; j < nb_objs + new_obj; ++j){
           objs_new[j].found = current->obj.found;
@@ -435,7 +430,8 @@ void add_objects(int SaveFile, int nb_args, char *args[])
         /*int trunc = lseek(SaveFile, 0, SEEK_CUR);
         ftruncate(SaveFile, trunc);*/
 
-        write_savefile_objects(SaveFile,objs_new,nb_objs_new);
+        for(int i = 0; i < nb_objs_new; i++)
+            write_savefile_objects(SaveFile,objs_new,i);
 
         /* Overwrite Max obj & Nb obj */
         lseek(SaveFile, MAX_OBJ * sizeof(unsigned), SEEK_SET);
@@ -486,16 +482,7 @@ void prune_obj(int SaveFile){
     for(int i = 0, j = 0; i < nb_objs; i++){
         if(objs[i].found)
         {
-            new_objs[j].collectible    =  objs[i].collectible;
-            new_objs[j].destructible   =  objs[i].destructible;
-            new_objs[j].found          =  objs[i].found;
-            new_objs[j].generator      =  objs[i].generator;
-            new_objs[j].solidity       =  objs[i].solidity;
-            new_objs[j].type           =  objs[i].type;
-            new_objs[j].frame          =  objs[i].frame;
-            new_objs[j].name_length    =  objs[i].name_length;
-            new_objs[j].name           =  malloc(new_objs[j].name_length * sizeof(char));
-            new_objs[j].name           =  objs[i].name;
+            copy_struct_objects(objs,new_objs,i,j);
             j++;
         }
     }
@@ -508,7 +495,8 @@ void prune_obj(int SaveFile){
     int obj_pos = lseek(SaveFile, 0, SEEK_CUR);
     ftruncate(SaveFile,obj_pos);
 
-    write_savefile_objects(SaveFile,new_objs,nb_in_map);
+    for(int i = 0; i < nb_in_map; i++)
+        write_savefile_objects(SaveFile,new_objs,i);
 
 
     for (int y=0 ; y<height ; y++){
