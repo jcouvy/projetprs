@@ -7,14 +7,13 @@ PROGRAM	:= game
 .PHONY: default
 default: $(PROGRAM)
 
-
 SOURCES := $(wildcard src/*.c)
 OBJECTS := $(SOURCES:src/%.c=obj/%.o)
 DEPENDS := $(SOURCES:src/%.c=deps/%.d)
 
 MAKEFILES := Makefile
 
-CUSTOM_OBJ := obj/mapio.o
+CUSTOM_OBJ := obj/mapio.o obj/tempo.o
 LIB	:= lib/libgame.a
 
 #CC=gcc
@@ -46,11 +45,9 @@ $(DEPENDS): deps/%.d: src/%.c
 	$(CC) $(CFLAGS) -MM $< | \
 		sed -e 's|\(.*\)\.o:|deps/\1.d obj/\1.o:|g' > $@
 
-
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPENDS)
 endif
-
 
 .PHONY: clean
 clean: 
