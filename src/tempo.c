@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "timer.h"
 
@@ -24,7 +25,7 @@ static unsigned long get_time (void)
   return tv.tv_sec * 1000000UL + tv.tv_usec;
 }
 
-#ifdef PADAWAN
+//#ifdef PADAWAN
 
 typedef struct event_s {
     struct itimerval delay;
@@ -56,15 +57,78 @@ void add_event(Event** head, Event** new_event)
     tmp->next = *new_event;
 }
 
-bool compare_delay(Event** a, Event** b)
-{
-    //TODO...
-    //Returns True if Event a is happening before Event b
+
+unsigned long second_to_micro(unsigned long seconde){
+    return seconde * 1000000;
 }
+
+
+unsigned long delay_of_event(Event *e){
+
+    unsigned long delay_sec_e,delay_micro_e,delay_e;
+
+    delay_sec_e       =   e->delay.it_value.tv_sec;
+    delay_micro_e     =   e->delay.it_value.tv_usec;
+    delay_e           =   second_to_micro(delay_sec_e) + delay_micro_e;
+    return delay_e;
+
+}
+
+
+bool compare_delay(Event* a, Event* b)
+{
+    //Returns True if Event a is happening before Event b
+
+   unsigned long delay_a           =   delay_of_event(a);
+   unsigned long delay_b           =   delay_of_event(b);
+
+   //printf("\n delai a : %lu delai b : %lu\n",delay_a,delay_b);
+
+   if(delay_a < delay_b)
+       return true;
+   else return false;
+
+}
+void print_events(Event* head);
 
 void sort_event(Event** head)
 {
-    //TODO...
+    printf("debut sort_event\n");
+
+    Event *tmp = *head;
+    Event *start_sort = *head;
+    Event *event_min;
+
+    int nb_elem = 1;
+
+    while(tmp->next!=NULL)
+    {
+        nb_elem++;
+        tmp = tmp->next;
+    }
+
+    printf("nb_elem : %d\n",nb_elem);
+
+
+    for(int i = 0; i < nb_elem; i++){
+
+        tmp = start_sort;
+
+        event_min = tmp;
+
+        while(tmp->next != NULL)
+        {
+            tmp = tmp->next;
+
+            if(compare_delay(tmp,event_min) == true)
+            {
+                event_min = tmp;
+            }
+        }
+
+        //TODO ..
+    }
+
 }
 
 void print_events(Event* head)
@@ -77,6 +141,14 @@ void print_events(Event* head)
         tmp = tmp->next;
     }
     printf("[Event: %lu sec %lu usec]\n\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
+
+    while (tmp->prev != NULL)
+    {
+        printf("[Event: %lu sec %lu usec] -> ", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
+        tmp = tmp->prev;
+    }
+    printf("[Event: %lu sec %lu usec]\n\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
+
 }
 
 void signal_handler(int signo)
@@ -100,8 +172,11 @@ void* daemon_handler(void* argp)
     sigdelset(&mask, SIGALRM);
 
     timer_set(5500, NULL);
+    printf("fin timer_set\n");
     timer_set(1500, NULL);
+    printf("fin timer_set\n");
     timer_set(500, NULL);
+    printf("fin timer_set\n");
     timer_set(3500, NULL);
     print_events(head);
 
@@ -128,6 +203,8 @@ int timer_init (void)
 
 void timer_set (Uint32 delay, void *param)
 {
+    printf(" debut timer_set\n");
+
     unsigned long int delay_sec = delay / 1000;
     unsigned long int delay_usec = (delay % 1000) * 1000;
     printf("NEW TIMER second: %lu, microsec: %lu\n", delay_sec, delay_usec);
@@ -139,10 +216,14 @@ void timer_set (Uint32 delay, void *param)
     e->delay.it_interval.tv_usec = 0;
     e->event_param = param;
     e->next = NULL;
+    if(head != NULL ){
+        printf("[head %lu sec %lu usec] \n",head->delay.it_value.tv_sec,head->delay.it_value.tv_usec);
+        print_events(head);
+    }
     add_event(&head, &e);
     sort_event(&head);
 
     setitimer(ITIMER_REAL, &e->delay, NULL);
 }
 
-#endif
+//#endif
