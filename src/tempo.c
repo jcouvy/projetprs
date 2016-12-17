@@ -24,87 +24,74 @@ static unsigned long get_time (void)
   return tv.tv_sec * 1000000UL + tv.tv_usec;
 }
 
+#ifdef PADAWAN
+
 typedef struct event_s {
     struct itimerval delay;
     void* event_param;
+    struct event_s *prev;
     struct event_s *next;
 } Event;
 
-Event* head = NULL;
+static Event* head = NULL;
 
-#ifdef PADAWAN
-
-void add_event(Event* head, Event* new, unsigned long int sec, unsigned long int usec, void* param)
+void add_event(Event** head, Event** new_event)
 {
-    Event* curr = malloc(sizeof(Event));
-    curr = head;
-
-    unsigned long int delay = sec + usec * 1000000;
-    if (head == NULL)
+    if (*head == NULL)
     {
-        head = new;
-        head->next = NULL;
-    }
-    else if (delay < head->delay.it_value.tv_sec + head->delay.it_value.tv_usec * 1000000)
-    {
-        new->next = head;
-        head = new;
-    }
-    else
-    {
-        while (curr->next != NULL)
-        {
-            if (delay < curr->next->delay.it_value.tv_sec + curr->next->delay.it_value.tv_usec * 1000000)
-            {
-                new->next = curr->next;
-                curr->next = new;
-                break;
-            }
-            curr = curr->next;
-        }
-        if (curr->next == NULL)
-        {
-            curr->next = new;
-        }
+        *head = *new_event;
+        (*head)->prev = NULL;
+        (*head)->next = NULL;
+        return;
     }
 
-    curr->delay.it_value.tv_sec  = sec;
-    curr->delay.it_value.tv_usec = usec;
-    curr->event_param            = param;
+    Event *tmp = *head;
+    while (tmp->next != NULL)
+    {
+        tmp = tmp->next;
+    }
+
+    (*new_event)->prev = tmp;
+    (*new_event)->next = NULL;
+    tmp->next = *new_event;
 }
 
+bool compare_delay(Event** a, Event** b)
+{
+    //TODO...
+    //Returns True if Event a is happening before Event b
+}
+
+void sort_event(Event** head)
+{
+    //TODO...
+}
 
 void print_events(Event* head)
 {
-    Event* curr = malloc(sizeof(Event));
-    curr = head;
-
-    if (head != NULL)
+    Event *tmp = head;
+    printf("\nQueued Events:\n");
+    while (tmp->next != NULL)
     {
-        while (curr->next != NULL)
-        {
-            printf("delay: %lu sec %lu usec\n", curr->delay.it_value.tv_sec, curr->delay.it_value.tv_usec);
-            curr = curr->next;
-        }
+        printf("[Event: %lu sec %lu usec] -> ", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
+        tmp = tmp->next;
     }
+    printf("[Event: %lu sec %lu usec]\n\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
 }
 
-void handler(int signo)
+void signal_handler(int signo)
 {
     if (signo == SIGALRM) {
-        printf("Hello je suis le thread %p\n", (void*)pthread_self());
         printf ("sdl_push_event(%p) appelée au temps %ld\n", NULL, get_time());
     }
 }
 
-void* deamon_handler(void* argp)
+void* daemon_handler(void* argp)
 {
-
-    printf("JE SUIS LE DEMON %d\n", getpid());
 
     struct sigaction sa;
     sa.sa_flags = 0;
-    sa.sa_handler = handler;
+    sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGALRM, &sa, NULL);
 
@@ -113,9 +100,11 @@ void* deamon_handler(void* argp)
     sigdelset(&mask, SIGALRM);
 
     timer_set(5500, NULL);
-    timer_set(1000, NULL);
+    timer_set(1500, NULL);
+    timer_set(500, NULL);
+    timer_set(3500, NULL);
     print_events(head);
-    sigprocmask(SIG_BLOCK, &mask, NULL);
+
     while (1)
     {
         sigsuspend(&mask);
@@ -125,9 +114,15 @@ void* deamon_handler(void* argp)
 // timer_init returns 1 if timers are fully implemented, 0 otherwise
 int timer_init (void)
 {
-    head = malloc(sizeof(Event));
-    pthread_t deamon;
-    pthread_create(&deamon, NULL, &deamon_handler, NULL);
+
+    pthread_t daemon;
+    pthread_create(&daemon, NULL, &daemon_handler, NULL);
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGALRM);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
+
     return 0; // Implementation not ready
 }
 
@@ -140,8 +135,12 @@ void timer_set (Uint32 delay, void *param)
     Event* e = malloc(sizeof(Event));
     e->delay.it_value.tv_sec = delay_sec;
     e->delay.it_value.tv_usec = delay_usec;
+    e->delay.it_interval.tv_sec = 0;
+    e->delay.it_interval.tv_usec = 0;
     e->event_param = param;
-    add_event(head, e, delay_sec, delay_usec, param);
+    e->next = NULL;
+    add_event(&head, &e);
+    sort_event(&head);
 
     setitimer(ITIMER_REAL, &e->delay, NULL);
 }
