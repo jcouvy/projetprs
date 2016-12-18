@@ -120,7 +120,7 @@ void sort_events(Event** head)
         while (curr->next != last)
         {
             /* Compares if the current Event happens sooner than the next */
-            if (compare_delay(curr, curr->next))
+            if (!compare_delay(curr, curr->next))
             {
                 swap(curr, curr->next);
                 swapped = 1;
@@ -141,13 +141,6 @@ void print_events(Event* head)
     {
         printf("[Event: %lu sec %lu usec] -> ", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
         tmp = tmp->next;
-    }
-    printf("[Event: %lu sec %lu usec]\n\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
-
-    while (tmp->prev != NULL)
-    {
-        printf("[Event: %lu sec %lu usec] -> ", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
-        tmp = tmp->prev;
     }
     printf("[Event: %lu sec %lu usec]\n\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
 
