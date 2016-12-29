@@ -28,6 +28,7 @@ static unsigned long get_time (void)
 #ifdef PADAWAN
 
 typedef struct event_s {
+    unsigned long daytime;
     struct itimerval delay;
     void* event_param;
     struct event_s *prev;
@@ -74,7 +75,7 @@ unsigned long delay_of_event(Event *e)
     delay_micro_e     =   e->delay.it_value.tv_usec;
     delay_e           =   second_to_micro(delay_sec_e) + delay_micro_e;
 
-    return delay_e;
+    return e->daytime + delay_e;
 }
 
 /* Returns True if the Event A happens before Event B */
@@ -148,8 +149,31 @@ void print_events(Event* head)
 
 void signal_handler(int signo)
 {
-    if (signo == SIGALRM) {
+    if (signo == SIGALRM)
+    {
+        Event* next = head->next;
+        if (next != NULL)
+        {
+            unsigned long head_delay = delay_of_event(head);
+            unsigned long next_delay = delay_of_event(next);
+            unsigned long remaining  = next_delay - head_delay;
+
+            next->delay.it_value.tv_sec = remaining / 1000000UL;
+            next->delay.it_value.tv_usec = remaining % 1000000UL;
+
+            free(next->prev);
+            next->prev = NULL;
+            head = next;
+            print_events(head);
+        }
+        else
+        {
+            free(head);
+            head = NULL;
+        }
         printf ("sdl_push_event(%p) appelée au temps %ld\n", NULL, get_time());
+        sdl_push_event(head->event_param);
+        setitimer(ITIMER_REAL, &head->delay, NULL);
     }
 }
 
@@ -165,10 +189,9 @@ void* daemon_handler(void* argp)
     sigfillset(&mask);
     sigdelset(&mask, SIGALRM);
 
-    timer_set(1500, NULL);
-    timer_set(5500, NULL);
-    timer_set(1500, NULL);
-    timer_set(200, NULL);
+    // timer_set(800, NULL);
+    // timer_set(700, NULL);
+    // timer_set(1000, NULL);
 
     print_events(head);
 
@@ -204,13 +227,14 @@ void timer_set (Uint32 delay, void *param)
     e->delay.it_value.tv_usec = delay_usec;
     e->delay.it_interval.tv_sec = 0;
     e->delay.it_interval.tv_usec = 0;
+    e->daytime = get_time();
     e->event_param = param;
     e->next = NULL;
 
     add_event(&head, &e);
     sort_events(&head);
-
-    setitimer(ITIMER_REAL, &e->delay, NULL);
+    // The shortest delay is the head after each call of timer_set().
+    setitimer(ITIMER_REAL, &head->delay, NULL);
 }
 
 #endif
