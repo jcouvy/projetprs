@@ -19,8 +19,7 @@
 #define SET_WIDTH    16
 #define SET_HEIGHT   32
 #define SET_OBJECTS  64
-#define ADD_OBJECTS  128
-#define PRUNE_OBJ    256
+#define PRUNE_OBJ    128
 
 /*int getopt_long_only(int argc, char * const argv[],
                   const char *optstring,
@@ -280,6 +279,7 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
 
             while (ret>0)
               {
+		int in_SaveFile = lseek(SaveFile, 0, SEEK_CUR);
                 ret = read(SaveFile, &res,sizeof(int));
                 if(ret >0){
                   lseek(SaveFile,6 * sizeof(int),SEEK_CUR);
@@ -287,6 +287,7 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
                   char *sprite = malloc(name_length * sizeof(char));
                   read(SaveFile, sprite, name_length *sizeof(char));
                   if (strcmp(args[index], sprite) == 0){
+		       lseek(SaveFile, in_SaveFile, SEEK_SET);
                        return true;
                   }
                 }
@@ -294,11 +295,7 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
             return false;
         }
 
-void set_objects(int SaveFile, int nb_args, char* args[]){
-
-}
-
-void add_objects(int SaveFile, int nb_args, char *args[])
+void set_objects(int SaveFile, int nb_args, char *args[])
 {
 
         unsigned nb_objs;
@@ -401,6 +398,70 @@ void add_objects(int SaveFile, int nb_args, char *args[])
                 current->obj.name = args[i];
                 new_obj++;
             }
+	    else
+	      {
+	        int val = atoi(args[i+1]);
+		int obj_solidity;
+		
+	        if   (strcmp("solid", args[i+2]) == 0) obj_solidity = 2;
+                else if (strcmp("semi-solid", args[i+2]) == 0) obj_solidity = 1;
+                else if (strcmp("air", args[i+2]) == 0) obj_solidity = 0;
+                else {
+                    perror("Wrong solidity argument !");
+                    exit(EXIT_FAILURE);
+                }
+
+		int obj_destructible;
+		
+                if   (strcmp("destructible", args[i+3]) == 0) obj_destructible = 4;
+                else if (strcmp("not-destructible", args[i+3]) == 0) obj_destructible = 0;
+                else {
+                    perror("Wrong destructibiliy argument !");
+                    exit(EXIT_FAILURE);
+                }
+
+		int obj_collectible;
+
+                if   (strcmp("collectible", args[i+4]) == 0) obj_collectible = 8;
+                else if (strcmp("not-collectible", args[i+4]) == 0) obj_collectible = 0;
+                else {
+                    perror("Wrong collectibility argument !");
+                    exit(EXIT_FAILURE);
+                }
+
+		int obj_generator;
+
+                if   (strcmp("generator", args[i+5]) == 0) obj_generator = 16;
+                else if (strcmp("not-generator", args[i+5]) == 0) obj_generator = 0;
+                else {
+                    perror("Wrong generator argument !");
+                    exit(EXIT_FAILURE);
+                }
+
+                int name_length = strlen(args[i]) + 1;
+                /*write(SaveFile, &name_length, sizeof(int));
+                  write(SaveFile, args[i], sizeof(name_length));*/
+
+                int obj_name_length = name_length;
+		char *obj_name = malloc(name_length* sizeof(char));
+                obj_name = args[i];
+
+		for( int i = 0; i < nb_objs; ++i){
+		  if(strcmp(obj_name, objs[i].name) == 0)
+		    {
+		      objs[i].frame = val;
+		      objs[i].solidity = obj_solidity;
+		      objs[i].destructible = obj_destructible;
+		      objs[i].collectible = obj_collectible;
+		      objs[i].generator = obj_generator;
+		      objs[i].name_length = obj_name_length;
+		      objs[i].name = malloc(objs[i].name_length * sizeof(char));
+		      objs[i].name = obj_name;
+		    }   
+		   
+		
+		}
+	      }
         }
 
         current = first;
@@ -613,7 +674,6 @@ int main(int argc, char* argv[]){
                         {"setwidth",    required_argument,   0,   SET_WIDTH},
                         {"setheight",   required_argument,   0,   SET_HEIGHT},
 			{"setobjects",  required_argument,   0,   SET_OBJECTS},
-                        {"addobjects",  required_argument,   0,   ADD_OBJECTS},
                         {"pruneobjects",no_argument,         0,   PRUNE_OBJ},
                         {0,             0,                   0,   HELP }
 
@@ -661,10 +721,6 @@ int main(int argc, char* argv[]){
 
 		  set_objects(fd,argc,argv);
 		  break;
-                case ADD_OBJECTS:
-
-                  add_objects(fd,argc,argv);
-                  break;
 
                 case PRUNE_OBJ:
 
