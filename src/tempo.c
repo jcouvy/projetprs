@@ -152,24 +152,7 @@ void signal_handler(int signo)
 {
     if (signo == SIGALRM)
     {
-        // pthread_mutex_lock(&mutex);
-        sdl_push_event(head->event_param);
-        printf("\nThread: %p Pid: %d\n", (void*)pthread_self(), getpid());
-        // print_events(head);
-        Event* tmp = head;
-        head = head->next;
-        free(tmp);
-        if (head != NULL)
-        {
-            unsigned long timeForNext = head->daytime + head->delay.it_value.tv_sec * 1000000UL + head->delay.it_value.tv_usec;
-            unsigned long timeBeforeNext = timeForNext - get_time();
-            printf("New SIGALRM in: %lums\n", timeBeforeNext / 1000);
-            struct itimerval nextTime;
-            nextTime.it_value.tv_sec = timeBeforeNext / 1000000UL;
-            nextTime.it_value.tv_usec = timeBeforeNext % 1000000UL;
-            setitimer(ITIMER_REAL, &(nextTime), NULL);
-        }
-        // pthread_mutex_unlock(&mutex);
+        printf("SIGALRM recu\n");
     }
 }
 
@@ -189,12 +172,42 @@ void* daemon_handler(void* argp)
     while (1)
     {
         sigsuspend(&mask);
+        unsigned long curr_timer  = 0;
+        unsigned long next_timer  = 0;
+        unsigned long timer_delay = 0;
+        do {
+            pthread_mutex_lock(&mutex);
+            sdl_push_event(head->event_param);
+            Event* tmp = head;
+            head = head->next;
+            free(tmp);
+            if (head != NULL)
+                next_timer = delay_of_event(head);
+            curr_timer = get_time();
+            pthread_mutex_unlock(&mutex);
+        } while ((curr_timer + 100000UL > next_timer) && head != NULL); // 500000UL = 500ms
+
+        if (head != NULL)
+        {
+            next_timer = head->daytime + head->delay.it_value.tv_sec * 1000000UL + head->delay.it_value.tv_usec;
+            timer_delay = next_timer - get_time();
+            printf("New SIGALRM in: %lums\n", timer_delay / 1000);
+            struct itimerval update_delay;
+            update_delay.it_value.tv_sec = timer_delay / 1000000UL;
+            update_delay.it_value.tv_usec = timer_delay % 1000000UL;
+            setitimer(ITIMER_REAL, &update_delay, NULL);
+        }
     }
 }
 
 // timer_init returns 1 if timers are fully implemented, 0 otherwise
-int timer_init (void)
+int timer_init(void)
 {
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGALRM);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
 
     pthread_t daemon;
     if (pthread_create(&daemon, NULL, &daemon_handler, NULL) != 0)
@@ -203,16 +216,8 @@ int timer_init (void)
         exit(EXIT_FAILURE);
     }
 
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGALRM);
-    sigprocmask(SIG_BLOCK, &mask, NULL);
-
     pthread_mutex_init(&mutex, NULL);
 
-    // timer_set(1200, NULL);
-    // timer_set(2500, NULL);
-    // timer_set(1500, NULL);
     return 1; // Implementation not ready
 }
 
@@ -220,7 +225,7 @@ void timer_set (Uint32 delay, void *param)
 {
     unsigned long int delay_sec = delay / 1000;
     unsigned long int delay_usec = (delay % 1000) * 1000;
-    printf("NEW TIMER second: %lu, microsec: %lu\n", delay_sec, delay_usec);
+    printf("\nNew Event: %luµs\n", get_time() / 1000000UL);
 
     Event* e = malloc(sizeof(Event));
     e->delay.it_value.tv_sec = delay_sec;
@@ -230,12 +235,14 @@ void timer_set (Uint32 delay, void *param)
     e->daytime = get_time();
     e->event_param = param;
 
-    add_event(&head, &e);
     pthread_mutex_lock(&mutex);
+    add_event(&head, &e);
     sort_events(&head);
     // The shortest delay is the head after each call of timer_set().
-    if (head == e)
+    if (head == e) {
         setitimer(ITIMER_REAL, &head->delay, NULL);
+        printf("New Timer in: %lums\n", head->delay.it_value.tv_sec * 1000 + head->delay.it_value.tv_usec / 1000);
+    }
     pthread_mutex_unlock(&mutex);
 }
 
