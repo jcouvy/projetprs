@@ -36,6 +36,7 @@ typedef struct event_s {
 } Event;
 
 static Event* head = NULL;
+static pthread_mutex_t mutex;
 
 /* Adds an event to a double-linked list. The address of the list
 is given in the argument head, the new element is a pointer towards
@@ -137,13 +138,13 @@ void sort_events(Event** head)
 void print_events(Event* head)
 {
     Event *tmp = head;
-    printf("\nQueued Events:\n");
+    printf("Queued Events:\n");
     while (tmp->next != NULL)
     {
-        printf("[Event: %lu sec %lu usec] -> ", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
+        printf("[Event: %lus %luµs] -> ", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
         tmp = tmp->next;
     }
-    printf("[Event: %lu sec %lu usec]\n\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
+    printf("[Event: %lus %luµs]\n", tmp->delay.it_value.tv_sec, tmp->delay.it_value.tv_usec);
 
 }
 
@@ -151,29 +152,24 @@ void signal_handler(int signo)
 {
     if (signo == SIGALRM)
     {
-        Event* next = head->next;
-        if (next != NULL)
-        {
-            unsigned long head_delay = delay_of_event(head);
-            unsigned long next_delay = delay_of_event(next);
-            unsigned long remaining  = next_delay - head_delay;
-
-            next->delay.it_value.tv_sec = remaining / 1000000UL;
-            next->delay.it_value.tv_usec = remaining % 1000000UL;
-
-            free(next->prev);
-            next->prev = NULL;
-            head = next;
-            print_events(head);
-        }
-        else
-        {
-            free(head);
-            head = NULL;
-        }
-        printf ("sdl_push_event(%p) appelée au temps %ld\n", NULL, get_time());
+        // pthread_mutex_lock(&mutex);
         sdl_push_event(head->event_param);
-        setitimer(ITIMER_REAL, &head->delay, NULL);
+        printf("\nThread: %p Pid: %d\n", (void*)pthread_self(), getpid());
+        // print_events(head);
+        Event* tmp = head;
+        head = head->next;
+        free(tmp);
+        if (head != NULL)
+        {
+            unsigned long timeForNext = head->daytime + head->delay.it_value.tv_sec * 1000000UL + head->delay.it_value.tv_usec;
+            unsigned long timeBeforeNext = timeForNext - get_time();
+            printf("New SIGALRM in: %lums\n", timeBeforeNext / 1000);
+            struct itimerval nextTime;
+            nextTime.it_value.tv_sec = timeBeforeNext / 1000000UL;
+            nextTime.it_value.tv_usec = timeBeforeNext % 1000000UL;
+            setitimer(ITIMER_REAL, &(nextTime), NULL);
+        }
+        // pthread_mutex_unlock(&mutex);
     }
 }
 
@@ -183,17 +179,12 @@ void* daemon_handler(void* argp)
     sa.sa_flags = 0;
     sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);
+    sigaddset(&sa.sa_mask, SIGALRM);
     sigaction(SIGALRM, &sa, NULL);
 
     sigset_t mask;
     sigfillset(&mask);
     sigdelset(&mask, SIGALRM);
-
-    // timer_set(800, NULL);
-    // timer_set(700, NULL);
-    // timer_set(1000, NULL);
-
-    print_events(head);
 
     while (1)
     {
@@ -206,14 +197,23 @@ int timer_init (void)
 {
 
     pthread_t daemon;
-    pthread_create(&daemon, NULL, &daemon_handler, NULL);
+    if (pthread_create(&daemon, NULL, &daemon_handler, NULL) != 0)
+    {
+        perror("Thread creation failed");
+        exit(EXIT_FAILURE);
+    }
 
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGALRM);
     sigprocmask(SIG_BLOCK, &mask, NULL);
 
-    return 0; // Implementation not ready
+    pthread_mutex_init(&mutex, NULL);
+
+    // timer_set(1200, NULL);
+    // timer_set(2500, NULL);
+    // timer_set(1500, NULL);
+    return 1; // Implementation not ready
 }
 
 void timer_set (Uint32 delay, void *param)
@@ -229,12 +229,14 @@ void timer_set (Uint32 delay, void *param)
     e->delay.it_interval.tv_usec = 0;
     e->daytime = get_time();
     e->event_param = param;
-    e->next = NULL;
 
     add_event(&head, &e);
+    pthread_mutex_lock(&mutex);
     sort_events(&head);
     // The shortest delay is the head after each call of timer_set().
-    setitimer(ITIMER_REAL, &head->delay, NULL);
+    if (head == e)
+        setitimer(ITIMER_REAL, &head->delay, NULL);
+    pthread_mutex_unlock(&mutex);
 }
 
 #endif
