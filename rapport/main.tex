@@ -72,8 +72,31 @@ Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informa
 \item MATRIX
 \end{itemize}
 
+Nous devions ensuite pouvoir modifié la taille de la map, ajouter des objets, modifier ses caractéristiques ou encore supprimer ceux qui ne sont pas présents sur la carte.
+Pour le traitement des options nous avons utilisé 'getopt'. Ensuite pour agrandir la taille il suffit juste de sauvegarder au moyen de l'appel système 'read' la matrice de la map, de crée une nouvelle matrice initialisée à -1 et de placer au bon endroit dans cette matrice l'ancienne. Avec un 'ftruncate' on efface l'ancienne matrice du fichier binaire, et avec 'write' on réécrit la bonne.
+
+Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non présent dans la map. Si il l'est pas on l'ajoute, si il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
+
+Quant à la suppression des objets non-présents, on supprime du fichier binaire tous les objets avec un found à 'false'.
+
+Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas précisé mais nous mettons à jour quand c'est necessaire ( modification taille de map ... ) les informations de la map ( width et height de la structure ... ).
 
 \subsection{Résultats}
+\begin{itemize}
+  \item Sauvegarde et chargement des cartes
+  \begin{todolist}
+  \item[\done] Sauvegarde
+  \item[\done] Chargement
+  \end{todolist}
+
+  \item Utilitaire de manipulation de carte
+  \item[\done] Getwidth, getheight, getobjects, getinfo
+  \item[\done] setwidth, setheight
+  \item[\done] setobjects, pruneobjects  
+  \item[\wontfix] Rapport sans faute de valgrind (SDL?)
+  \end{todolist}
+\end{itemize}
+
 
 \section{Gestion des temporisateurs}
 \subsection{Choix}
