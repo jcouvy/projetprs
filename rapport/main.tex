@@ -7,6 +7,17 @@
 \usepackage{minted}
 \usepackage{graphicx}
 
+%% Todo List
+\usepackage{enumitem,amssymb}
+\newlist{todolist}{itemize}{2}
+\setlist[todolist]{label=$\square$}
+\usepackage{pifont}
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand{\done}{\rlap{$\square$}{\raisebox{2pt}{\large\hspace{1pt}\cmark}}%
+\hspace{-2.5pt}}
+\newcommand{\wontfix}{\rlap{$\square$}{\large\hspace{1pt}\xmark}}
+
 %% Sets page size and margins
 \usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
 \setlength{\parskip}{.5em}
@@ -28,19 +39,108 @@ L'objectif de ce projet était de mettre en réseau un jeu de morpion aveugle av
 
 \section{Gestion des temporisateurs}
 \subsection{Choix}
-\subsection{Résultats}
-
-\begin{itemize}
-\item exemple liste
-\item exemple liste2
-\end{itemize}
+Nous avons dabord créé une structure 'Event' représentant une nouvelle occurrence d'un timer (bombe ou mine). La structure comprend les champs suivants:
 
 \begin{minted}{C}
-int main()
-{ 
-	#exemple de code
+typedef struct event_s {
+    unsigned long daytime; // Heure au moment où la structure est allouée
+    struct itimerval delay; // Structure de temps spécifiant le délai avant l'action
+    void* event_param; // Sauvegarde du paramètre passé par SDL
+    struct event_s *prev; // Chainage double (élément précédent)
+    struct event_s *next; // Chainage double (élément suivant)
+} Event;
+\end{minted}
+
+Les évènements sont ajoutés dans une liste double chaînée dès leur création (placement d'une bombe ou d'une mine par l'utilisateur) puis sont ensuites triés dans l'ordre de déclenchement. Pour se faire, on vérifie pour chaque élément de la liste si l'horaire stocké dans la structure de l'évènement ajouté au délais avant l'explosion est inférieur à ce même calcul pour les autres Events. Il est important de noter que le délai doit être converti en millisecondes si l'on se réfère au prototype de la fonction timer\_set.
+
+Fonctions associées:
+\begin{minted}{C}
+unsigned long delay_of_event(Event *e);
+bool compare_delay(Event* a, Event* b);
+// Applique un tri bulles sur une liste dont on donne l'adresse du premier élément.
+void sort_events(Event** head);
+// Ajoute l'élément pointé par new_event dans une liste DC 
+void add_event(Event** head, Event** new_event);
+\end{minted}
+
+Pour gérer la réception des signaux nous créons un thread démon chargé de boucler indéfiniment en attendant les SIGALRM envoyés par le système lorsque le délai de chacun des Events atteint 0 (grâce à la fonction \textbf{setitimer} appelé dans \textbf{timer\_set} dont le comportement est analogue à alarm() en plus de la gestion des structures de temps \textbf{itimerval}).
+
+Fonctions associées:
+\begin{minted}{C}
+void* daemon_handler(void* argp);
+void signal_handler(int signo);
+\end{minted}
+
+À la réception d'un SIGALRM, le thread démon se charge de l'appel à la fonction \textbf{sdl\_push\_event} tout en lui passant en argument le paramètre de l'évènement déclenché. De plus il doit se charger, d'une part de libérer l'espace mémoire dans la liste de l'évènement terminé et de mettre à jour la tête de file, d'autre part de la gestion des évènements à venir. On distingue deux possiblités où: 
+
+\begin{itemize}
+\item Un ou plusieurs évènements seraient très rapprochés dans le temps de celui venant de se déclencher. On considère le temps minimum espacant deux évènements de façon arbitraire. Le démon doit alors répèter les étapes précédentes en négligeant la différence de temps.
+\begin{minted}{C}
+do { 
+// gestion de l'Event
+} while  ((curr_timer + 100000UL > next_timer) && head != NULL); 
+// 100000UL = 100ms, le délai minimum entre deux évènements.
+\end{minted}
+
+\item Les évènements suivants se déclenche avec plus de 100ms d'intervalle. Dans ce cas, il est nécessaire de mettre en place un nouveau signal d'alarme avec le délai mis à jour correspondant au prochain évènement. Cela se traduit par un nouvel appel à la fonction \textbf{setitimer} avec pour paramètre une structure \textbf{itimerval} dont le délai correspond à la différence entre le délai stocké dans la structure du prochain évènement et l'horaire au moment de l'appel.
+\end{itemize}
+
+Pour protéger les accès espaces de données partagées nous avons mis en place un mutex que l'on initialise dès l'appel à la fonction \textbf{timer\_init}. Les protections sont ajoutées dès qu'une manipulation de la liste DC à lieu notamment:
+
+À la création d'un nouveau timer
+\begin{minted}{C}
+void timer_set (Uint32 delay, void *param)
+{
+//...
+    pthread_mutex_lock(&mutex);
+    add_event(&head, &e);
+    sort_events(&head);
+//...
+    pthread_mutex_unlock(&mutex);
 }
 \end{minted}
 
+Au sein du thread démon lors de la mise à jour de la liste
+\begin{minted}{C}
+void* daemon_handler(void* argp)
+{
+//...
+ while (1)
+    {
+	//...
+        do {
+            pthread_mutex_lock(&mutex);
+	// SDL + mise à jour liste DC
+            pthread_mutex_unlock(&mutex);
+        } while ((curr_timer + 100000UL > next_timer) && head != NULL);
+}
+\end{minted}
+
+\subsection{Résultats}
+
+\begin{itemize}
+  \item Gestion des structures de données
+  \begin{todolist}
+  \item[\done] Liste DC fonctionnelle
+  \item[\done] Structure évènement
+  \item[\done] Tri de la liste
+  \item[\wontfix] Rapport sans faute de valgrind (SDL?)
+  \end{todolist}
+  
+  \item Implémentation simple
+  \begin{todolist}
+  \item[\done] Placement d'une bombe (timing, sprite: ok)
+  \item[\done] Placement d'une mine (timing, armement, sprite: ok)
+  \item[\done] Explosions respectant l'ordre chronologique
+  \end{todolist}
+  
+  \item Implémentation complète
+  \begin{todolist}
+  \item[\done] Placement de plusieurs bombes
+  \item[\done] Placement de plusieurs mines
+  \item[\done] Explosions respectant l'ordre chronologique
+  \item[\wontfix] Explosions simultannées (peut glitcher par moments)
+  \end{todolist}
+\end{itemize}
 
 \end{document}
