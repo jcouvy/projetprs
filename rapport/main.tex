@@ -35,6 +35,44 @@ L'objectif de ce projet était de mettre en réseau un jeu de morpion aveugle av
 
 \section{Sauvegarde et chargement des cartes}
 \subsection{Choix}
+Nous avons dabord créé une structure 'Map' composée des caractéristiques de la carte. La structure comprend les champs suivants:
+
+\begin{minted}{C}
+typedef struct {
+    unsigned width;
+    unsigned height;
+    unsigned max_obj;
+    unsigned nb_objects;
+} Map_s;
+\end{minted}
+
+Puis nous avons crée une structure 'Objects' composée de toutes les informations que contiennent chaques pièces. La structure comprend les champs suivants:
+\begin{minted}{C}
+typedef struct {
+    int      found; // Object is found in map
+    int      type;
+    int      frame;
+    int      solidity;
+    int      destructible;
+    int      collectible;
+    int      generator;
+    int      name_length;
+    char     *name;
+} Object_s;
+\end{minted}
+
+Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informations grâce aux fonctions existentes. Puis on parcourt chaques objects de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaques objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. Pour le chargement il suffit de lire ce même fichier dans l'ordre que l'on avait utilisé pour le remplir, c'est à dire:
+
+\begin{itemize}
+\item WIDTH
+\item HEIGHT
+\item MAX_OBJET_MAP
+\item NB_OBJ
+\item OBJ_INFO
+\item MATRIX
+\end{itemize}
+
+
 \subsection{Résultats}
 
 \section{Gestion des temporisateurs}
