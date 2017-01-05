@@ -35,7 +35,7 @@ L'objectif de ce projet était de mettre en réseau un jeu de morpion aveugle av
 
 \section{Sauvegarde et chargement des cartes}
 \subsection{Choix}
-Nous avons dabord créé une structure 'Map' composée des caractéristiques de la carte. La structure comprend les champs suivants:
+Nous avons d'abord créé une structure 'Map' composée des caractéristiques de la carte. La structure comprend les champs suivants:
 
 \begin{minted}{C}
 typedef struct {
@@ -46,7 +46,7 @@ typedef struct {
 } Map_s;
 \end{minted}
 
-Puis nous avons crée une structure 'Objects' composée de toutes les informations que contiennent chaques pièces. La structure comprend les champs suivants:
+Puis nous avons crée une structure 'Objects' composée de toutes les informations que contiennent chaque pièces. La structure comprend les champs suivants:
 \begin{minted}{C}
 typedef struct {
     int      found; // Object is found in map
@@ -61,25 +61,25 @@ typedef struct {
 } Object_s;
 \end{minted}
 
-Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informations grâce aux fonctions existentes. Puis on parcourt chaques objects de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaques objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. Pour le chargement il suffit de lire ce même fichier dans l'ordre que l'on avait utilisé pour le remplir, c'est à dire:
+Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informations grâce aux fonctions existantes. Puis on parcourt chaque objets de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaques objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. Pour le chargement, il suffit de lire ce même fichier dans l'ordre que l'on avait utilisé pour le remplir, c'est-à-dire:
 
 \begin{itemize}
 \item WIDTH
 \item HEIGHT
-\item MAX_OBJET_MAP
-\item NB_OBJ
-\item OBJ_INFO
+\item MAX\_OBJET\_MAP
+\item NB\_OBJ
+\item OBJ\_INFO
 \item MATRIX
 \end{itemize}
 
-Nous devions ensuite pouvoir modifié la taille de la map, ajouter des objets, modifier ses caractéristiques ou encore supprimer ceux qui ne sont pas présents sur la carte.
-Pour le traitement des options nous avons utilisé 'getopt'. Ensuite pour agrandir la taille il suffit juste de sauvegarder au moyen de l'appel système 'read' la matrice de la map, de crée une nouvelle matrice initialisée à -1 et de placer au bon endroit dans cette matrice l'ancienne. Avec un 'ftruncate' on efface l'ancienne matrice du fichier binaire, et avec 'write' on réécrit la bonne.
+Nous devions ensuite pouvoir modifier la taille de la map, ajouter des objets, modifier ses caractéristiques ou encore supprimer ceux qui ne sont pas présents sur la carte.
+Pour le traitement des options, nous avons utilisé 'getopt'. Ensuite pour agrandir la taille, il suffit juste de: sauvegarder au moyen de l'appel système 'read' la matrice de la map, créer une nouvelle matrice initialisée à -1 et de placer au bon endroit dans cette matrice l'ancienne. Avec un 'ftruncate' on efface l'ancienne matrice du fichier binaire, et avec 'write' on réécrit la bonne.
 
-Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non présent dans la map. Si il l'est pas on l'ajoute, si il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
+Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non-présent dans la map. S'il ne l'est pas on l'ajoute, s'il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
 
 Quant à la suppression des objets non-présents, on supprime du fichier binaire tous les objets avec un found à 'false'.
 
-Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas précisé mais nous mettons à jour quand c'est necessaire ( modification taille de map ... ) les informations de la map ( width et height de la structure ... ).
+Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas précisé mais, nous mettons à jour quand c'est necessaire ( modification taille de map ... ) les informations de la map ( width et height de la structure ... ).
 
 \subsection{Résultats}
 \begin{itemize}
@@ -88,8 +88,9 @@ Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas préc
   \item[\done] Sauvegarde
   \item[\done] Chargement
   \end{todolist}
-
+  
   \item Utilitaire de manipulation de carte
+  \begin{todolist}
   \item[\done] Getwidth, getheight, getobjects, getinfo
   \item[\done] setwidth, setheight
   \item[\done] setobjects, pruneobjects  
@@ -100,7 +101,7 @@ Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas préc
 
 \section{Gestion des temporisateurs}
 \subsection{Choix}
-Nous avons dabord créé une structure 'Event' représentant une nouvelle occurrence d'un timer (bombe ou mine). La structure comprend les champs suivants:
+Nous avons dabord créé une structure 'Event' représentant une nouvelle occurrence d'un timer (bombe ou mine). La structure comprend les champs suivants :
 
 \begin{minted}{C}
 typedef struct event_s {
@@ -112,9 +113,9 @@ typedef struct event_s {
 } Event;
 \end{minted}
 
-Les évènements sont ajoutés dans une liste double chaînée dès leur création (placement d'une bombe ou d'une mine par l'utilisateur) puis sont ensuites triés dans l'ordre de déclenchement. Pour se faire, on vérifie pour chaque élément de la liste si l'horaire stocké dans la structure de l'évènement ajouté au délais avant l'explosion est inférieur à ce même calcul pour les autres Events. Il est important de noter que le délai doit être converti en millisecondes si l'on se réfère au prototype de la fonction timer\_set.
+Les évènements sont ajoutés dans une liste double chaînée dès leur création (placement d'une bombe ou d'une mine par l'utilisateur) puis sont ensuite triés dans l'ordre de déclenchement. Pour se faire, on vérifie pour chaque élément de la liste si l'horaire stocké dans la structure de l'évènement ajouté au délai avant l'explosion est inférieur à ce même calcul pour les autres Events. Il est important de noter que le délai doit être converti en millisecondes si l'on se réfère au prototype de la fonction timer\_set.
 
-Fonctions associées:
+Fonctions associées :
 \begin{minted}{C}
 unsigned long delay_of_event(Event *e);
 bool compare_delay(Event* a, Event* b);
@@ -124,18 +125,18 @@ void sort_events(Event** head);
 void add_event(Event** head, Event** new_event);
 \end{minted}
 
-Pour gérer la réception des signaux nous créons un thread démon chargé de boucler indéfiniment en attendant les SIGALRM envoyés par le système lorsque le délai de chacun des Events atteint 0 (grâce à la fonction \textbf{setitimer} appelé dans \textbf{timer\_set} dont le comportement est analogue à alarm() en plus de la gestion des structures de temps \textbf{itimerval}).
+Pour gérer la réception des signaux, nous créons un thread démon chargé de boucler indéfiniment en attendant les SIGALRM envoyés par le système lorsque le délai de chacun des Events atteint 0 (grâce à la fonction \textbf{setitimer} appelé dans \textbf{timer\_set} dont le comportement est analogue à alarm() en plus de la gestion des structures de temps \textbf{itimerval}).
 
-Fonctions associées:
+Fonctions associées :
 \begin{minted}{C}
 void* daemon_handler(void* argp);
 void signal_handler(int signo);
 \end{minted}
 
-À la réception d'un SIGALRM, le thread démon se charge de l'appel à la fonction \textbf{sdl\_push\_event} tout en lui passant en argument le paramètre de l'évènement déclenché. De plus il doit se charger, d'une part de libérer l'espace mémoire dans la liste de l'évènement terminé et de mettre à jour la tête de file, d'autre part de la gestion des évènements à venir. On distingue deux possiblités où: 
+À la réception d'un SIGALRM, le thread démon se charge de l'appel à la fonction \textbf{sdl\_push\_event} tout en lui passant en argument le paramètre de l'évènement déclenché. De plus, il doit se charger, d'une part de libérer l'espace mémoire dans la liste de l'évènement terminé et de mettre à jour la tête de file, d'autre part de la gestion des évènements à venir. On distingue deux possibilités où : 
 
 \begin{itemize}
-\item Un ou plusieurs évènements seraient très rapprochés dans le temps de celui venant de se déclencher. On considère le temps minimum espacant deux évènements de façon arbitraire. Le démon doit alors répèter les étapes précédentes en négligeant la différence de temps.
+\item Un ou plusieurs évènements seraient très rapprochés dans le temps de celui venant de se déclencher. On considère le temps minimum espaçant  deux évènements de façon arbitraire. Le démon doit alors répéter les étapes précédentes en négligeant la différence de temps.
 \begin{minted}{C}
 do { 
 // gestion de l'Event
@@ -146,7 +147,7 @@ do {
 \item Les évènements suivants se déclenche avec plus de 100ms d'intervalle. Dans ce cas, il est nécessaire de mettre en place un nouveau signal d'alarme avec le délai mis à jour correspondant au prochain évènement. Cela se traduit par un nouvel appel à la fonction \textbf{setitimer} avec pour paramètre une structure \textbf{itimerval} dont le délai correspond à la différence entre le délai stocké dans la structure du prochain évènement et l'horaire au moment de l'appel.
 \end{itemize}
 
-Pour protéger les accès espaces de données partagées nous avons mis en place un mutex que l'on initialise dès l'appel à la fonction \textbf{timer\_init}. Les protections sont ajoutées dès qu'une manipulation de la liste DC à lieu notamment:
+Pour protéger les accès espaces de données partagées, nous avons mis en place un mutex que l'on initialise dès l'appel à la fonction \textbf{timer\_init}. Les protections sont ajoutées dès qu'une manipulation de la liste DC à lieu notamment :
 
 À la création d'un nouveau timer
 \begin{minted}{C}
