@@ -31,7 +31,7 @@
 \maketitle
 
 \section{Introduction}
-L'objectif de ce projet était de mettre en réseau un jeu de morpion aveugle avec une architecture client-serveur similaire à celle vue dans le TP sur le serveur de chat. Nous avons donc implementé une architecture TCP écrite en Python avec la méthode select().
+
 
 \section{Sauvegarde et chargement des cartes}
 \subsection{Choix}
@@ -56,26 +56,118 @@ typedef struct {
     int      destructible;
     int      collectible;
     int      generator;
-    int      name_length;
+    int      name\_length;
     char     *name;
 } Object_s;
 \end{minted}
 
-Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informations grâce aux fonctions existantes. Puis on parcourt chaque objets de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaques objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. Pour le chargement, il suffit de lire ce même fichier dans l'ordre que l'on avait utilisé pour le remplir, c'est-à-dire:
+Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informations grâce aux fonctions existantes.
 
-\begin{itemize}
-\item WIDTH
-\item HEIGHT
-\item MAX\_OBJET\_MAP
-\item NB\_OBJ
-\item OBJ\_INFO
-\item MATRIX
-\end{itemize}
+\begin{minted}{C}
+    map.width      = map\_width();
+    map.height     = map\_height();
+    map.max\_obj    = map\_objects();
+\end{minted}   
+
+Puis on parcourt chaque objets de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaques objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. On inscrit dans la structure la taille du nom de la texture (name\_length) pour pouvoir lors du chargement connaitre la taille de la chaine de caractère à récupérer.
+
+\begin{minted}{C}
+    ret = read(LoadFile, &objs[i].name_length,  sizeof(int));
+    objs[i].name = malloc(objs[i].name_length * sizeof(char));
+    ret = read(LoadFile, objs[i].name,          objs[i].name_length * sizeof(char));
+\end{minted}   
+
+Pour le chargement, il suffit de lire ce même fichier dans l'ordre que l'on avait utilisé pour le remplir, c'est-à-dire:
+
+\begin{minted}{C}
+/* SaveFile Format (line breaks are for readability only, not present in binary):
+    Map width  (UNSIGNED)
+    Map height (UNSIGNED)
+    Maximum amount of object (UNSIGNED)
+    Number of objects in map & editor (UNSIGNED) -- equals to max when using set\_objects.
+
+    Object 1:
+        Found physically in the map (INT)
+        Type (INT)
+        Frames of its decal (INT)
+        Solidity (INT)
+        Destructibiliy (INT)
+        Collectibility (INT)
+        Generator (INT)
+        Length of its texture name (INT)
+        Texture name (CHAR *)
+
+    (...) Object n
+
+    2D Matrix of the map (INT) */
+\end{minted}
 
 Nous devions ensuite pouvoir modifier la taille de la map, ajouter des objets, modifier ses caractéristiques ou encore supprimer ceux qui ne sont pas présents sur la carte.
-Pour le traitement des options, nous avons utilisé 'getopt'. Ensuite pour agrandir la taille, il suffit juste de: sauvegarder au moyen de l'appel système 'read' la matrice de la map, créer une nouvelle matrice initialisée à -1 et de placer au bon endroit dans cette matrice l'ancienne. Avec un 'ftruncate' on efface l'ancienne matrice du fichier binaire, et avec 'write' on réécrit la bonne.
+Pour le traitement des options, nous avons utilisé 'getopt':
 
-Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non-présent dans la map. S'il ne l'est pas on l'ajoute, s'il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
+\begin{minted}{C}
+struct option long\_option[] =
+		  {
+                        {"getwidth",    no\_argument,         0,   GET\_WIDTH},
+                        {"getheight",   no\_argument,         0,   GET\_HEIGHT},
+                        {"getobjects",  no\_argument,         0,   GET\_OBJECTS},
+                        {"getinfo",     no\_argument,         0,   GET\_INFO},
+                        {"setwidth",    required\_argument,   0,   SET\_WIDTH},
+                        {"setheight",   required\_argument,   0,   SET\_HEIGHT},
+			{"setobjects",  required\_argument,   0,   SET\_OBJECTS},
+                        {"pruneobjects",no\_argument,         0,   PRUNE\_OBJ},
+                        {0,             0,                    0,   HELP }
+
+		  };
+\end{minted} 
+
+Ensuite pour agrandir la taille, il suffit juste de sauvegarder au moyen de l'appel système 'read' la matrice de la map, créer une nouvelle matrice initialisée à -1 et de placer au bon endroit dans cette matrice l'ancienne. Avec un 'ftruncate' on efface l'ancienne matrice du fichier binaire, et avec 'write' on réécrit la bonne.
+
+Fonctions associées :
+\begin{minted}{C}
+int get\_width\_value(int fd)
+// retourne la valeur de la largeur de la map.
+int get\_height\_value(int fd)
+// retourne la valeur de la hauteur de la map.
+void go\_to\_matrix(int fd, int width, int height)
+// Place l'offset à la position de début de la matrice.
+void copy\_struct\_objects(Object\_s *src, Object\_s *dest, int i\_src, int i\_dst)
+// Copie la structure src à partir de l'index i\_src dans la structure dest à partir de l'index i\_dest.
+Object_s *read_savefile_objects(int SaveFile, int nb_objs)
+// Retourne le tableau d'objets lu dans le fichier de sauvegarde.
+void write\_savefile\_objects(int SaveFile,Object\_s *objs,int i)
+// Ecris dans le fichier de sauvegarde l'objet i et ses caractéristiques.
+\end{minted}
+
+Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non présent dans la map. S'il ne l'est pas on l'ajoute, s'il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
+Fonction de recherche d'un objet dans le fichier de sauvegarde:
+
+\begin{minted}{C}
+bool object_in_savefile(int SaveFile, int index, char *args[])
+{
+
+  ...
+  
+        while (ret>0)
+          {
+            int in\_SaveFile = lseek(SaveFile, 0, SEEK\_CUR);
+            ret = read(SaveFile, &res,sizeof(int));
+            if(ret >0)
+	    {
+                lseek(SaveFile,6 * sizeof(int),SEEK_CUR);
+                read(SaveFile, &name\_length, sizeof(int));
+                char *sprite = malloc(name_length * sizeof(char));
+                read(SaveFile, sprite, name_length *sizeof(char));
+                if (strcmp(args[index], sprite) == 0)
+		  {
+		       lseek(SaveFile, in\_SaveFile, SEEK\_SET);
+                       return true;
+		  }
+            }
+          }
+        return false;
+}
+\end{minted}
 
 Quant à la suppression des objets non-présents, on supprime du fichier binaire tous les objets avec un found à 'false'.
 
@@ -85,15 +177,20 @@ Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas préc
 \begin{itemize}
   \item Sauvegarde et chargement des cartes
   \begin{todolist}
-  \item[\done] Sauvegarde
-  \item[\done] Chargement
+  \item[\done] Ecriture structure map
+  \item[\done] Ecriture tableau de structure d'objets
+  \item[\done] Ecriture matrice d'objets
+  \item[\done] Lecture structure map
+  \item[\done] Lecture tableau de structure d'objets
+  \item[\done] Lecture matrice d'objets
   \end{todolist}
   
   \item Utilitaire de manipulation de carte
   \begin{todolist}
-  \item[\done] Getwidth, getheight, getobjects, getinfo
-  \item[\done] setwidth, setheight
-  \item[\done] setobjects, pruneobjects  
+  \item[\done] Lecture et affichage d'information de la map (Getwidth, getheight, getobjects, getinfo)
+  \item[\done] Modification de la taille de la map (setwidth, setheight)
+  \item[\done] Ajout ou modification d'objets (setobject)
+  \item[\done] Suppression d'objets non présents dans la map (pruneobjects)  
   \item[\wontfix] Rapport sans faute de valgrind (SDL?)
   \end{todolist}
 \end{itemize}
