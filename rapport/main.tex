@@ -56,7 +56,7 @@ typedef struct {
     int      destructible;
     int      collectible;
     int      generator;
-    int      name\_length;
+    int      name_length;
     char     *name;
 } Object_s;
 \end{minted}
@@ -64,12 +64,13 @@ typedef struct {
 Lors de la sauvegarde de la Map, on sauvegarde dans la structure map les informations grâce aux fonctions existantes.
 
 \begin{minted}{C}
-    map.width      = map\_width();
-    map.height     = map\_height();
-    map.max\_obj    = map\_objects();
+    map.width      = map_width();
+    map.height     = map_height();
+    map.max_obj    = map_objects();
 \end{minted}   
 
-Puis on parcourt chaque objets de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaques objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. On inscrit dans la structure la taille du nom de la texture (name\_length) pour pouvoir lors du chargement connaitre la taille de la chaine de caractère à récupérer.
+Puis on parcourt chaque objet de la map, que l'on sauvegarde dans une matrice. Ensuite, nous recherchons pour chaque objet présent toutes ses caractéristiques que l'on rentre dans un tableau de structure objet. Une fois tout cela stocké dans les structures, il nous suffit avec l'appel système 'write' d'écrire ces informations dans un fichier de sauvegarde binaire. On inscrit dans la structure la taille du nom de la texture (name\_length) pour pouvoir lors du chargement connaitre la taille de la chaîne de caractère à récupérer.
+
 
 \begin{minted}{C}
     ret = read(LoadFile, &objs[i].name_length,  sizeof(int));
@@ -84,7 +85,7 @@ Pour le chargement, il suffit de lire ce même fichier dans l'ordre que l'on ava
     Map width  (UNSIGNED)
     Map height (UNSIGNED)
     Maximum amount of object (UNSIGNED)
-    Number of objects in map & editor (UNSIGNED) -- equals to max when using set\_objects.
+    Number of objects in map & editor (UNSIGNED) -- equals to max when using set_objects.
 
     Object 1:
         Found physically in the map (INT)
@@ -106,41 +107,41 @@ Nous devions ensuite pouvoir modifier la taille de la map, ajouter des objets, m
 Pour le traitement des options, nous avons utilisé 'getopt':
 
 \begin{minted}{C}
-struct option long\_option[] =
-		  {
-                        {"getwidth",    no\_argument,         0,   GET\_WIDTH},
-                        {"getheight",   no\_argument,         0,   GET\_HEIGHT},
-                        {"getobjects",  no\_argument,         0,   GET\_OBJECTS},
-                        {"getinfo",     no\_argument,         0,   GET\_INFO},
-                        {"setwidth",    required\_argument,   0,   SET\_WIDTH},
-                        {"setheight",   required\_argument,   0,   SET\_HEIGHT},
-			{"setobjects",  required\_argument,   0,   SET\_OBJECTS},
-                        {"pruneobjects",no\_argument,         0,   PRUNE\_OBJ},
-                        {0,             0,                    0,   HELP }
-
-		  };
+struct option long_option[] =
+{
+            {"getwidth",    no_argument,         0,   GET_WIDTH},
+            {"getheight",   no_argument,         0,   GET_HEIGHT},
+            {"getobjects",  no_argument,         0,   GET_OBJECTS},
+            {"getinfo",     no_argument,         0,   GET_INFO},
+            {"setwidth",    required_argument,   0,   SET_WIDTH},
+            {"setheight",   required_argument,   0,   SET_HEIGHT}, 
+            {"setobjects",  required_argument,   0,   SET_OBJECTS},
+            {"pruneobjects",no_argument,         0,   PRUNE_OBJ},
+            {0,             0,                    0,   HELP }
+};
 \end{minted} 
+
 
 Ensuite pour agrandir la taille, il suffit juste de sauvegarder au moyen de l'appel système 'read' la matrice de la map, créer une nouvelle matrice initialisée à -1 et de placer au bon endroit dans cette matrice l'ancienne. Avec un 'ftruncate' on efface l'ancienne matrice du fichier binaire, et avec 'write' on réécrit la bonne.
 
 Fonctions associées :
 \begin{minted}{C}
-int get\_width\_value(int fd)
+int get_width_value(int fd)
 // retourne la valeur de la largeur de la map.
-int get\_height\_value(int fd)
+int get_height_value(int fd)
 // retourne la valeur de la hauteur de la map.
-void go\_to\_matrix(int fd, int width, int height)
+void go_to_matrix(int fd, int width, int height)
 // Place l'offset à la position de début de la matrice.
-void copy\_struct\_objects(Object\_s *src, Object\_s *dest, int i\_src, int i\_dst)
-// Copie la structure src à partir de l'index i\_src dans la structure dest à partir de l'index i\_dest.
+void copy_struct_objects(Object_s *src, Object_s *dest, int i_src, int i_dst)
+// Copie la structure src à partir de l'index i_src dans la structure dest à partir de l'index i_dest.
 Object_s *read_savefile_objects(int SaveFile, int nb_objs)
 // Retourne le tableau d'objets lu dans le fichier de sauvegarde.
-void write\_savefile\_objects(int SaveFile,Object\_s *objs,int i)
+void write_savefile_objects(int SaveFile, Object_s *objs, int i)
 // Ecris dans le fichier de sauvegarde l'objet i et ses caractéristiques.
 \end{minted}
 
-Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non présent dans la map. S'il ne l'est pas on l'ajoute, s'il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
-Fonction de recherche d'un objet dans le fichier de sauvegarde:
+Pour l'ajout d'objet, il suffit de regarder grâce au champ 'found' de la structure objet si l'objet est ou non-présent dans la map. S'il ne l'est pas, on l'ajoute, s'il y est, on regarde si les caractéristiques sont les mêmes et on les remplace par les nouvelles.
+Fonction de recherche d'un objet dans le fichier de sauvegarde :
 
 \begin{minted}{C}
 bool object_in_savefile(int SaveFile, int index, char *args[])
@@ -150,17 +151,17 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
   
         while (ret>0)
           {
-            int in\_SaveFile = lseek(SaveFile, 0, SEEK\_CUR);
-            ret = read(SaveFile, &res,sizeof(int));
+            int in_SaveFile = lseek(SaveFile, 0, SEEK_CUR);
+            ret = read(SaveFile, &res, sizeof(int));
             if(ret >0)
 	    {
-                lseek(SaveFile,6 * sizeof(int),SEEK_CUR);
-                read(SaveFile, &name\_length, sizeof(int));
+                lseek(SaveFile,6 * sizeof(int), SEEK_CUR);
+                read(SaveFile, &name_length, sizeof(int));
                 char *sprite = malloc(name_length * sizeof(char));
-                read(SaveFile, sprite, name_length *sizeof(char));
+                read(SaveFile, sprite, name_length * sizeof(char));
                 if (strcmp(args[index], sprite) == 0)
 		  {
-		       lseek(SaveFile, in\_SaveFile, SEEK\_SET);
+		       lseek(SaveFile, in_SaveFile, SEEK_SET);
                        return true;
 		  }
             }
@@ -171,7 +172,8 @@ bool object_in_savefile(int SaveFile, int index, char *args[])
 
 Quant à la suppression des objets non-présents, on supprime du fichier binaire tous les objets avec un found à 'false'.
 
-Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas précisé mais, nous mettons à jour quand c'est necessaire ( modification taille de map ... ) les informations de la map ( width et height de la structure ... ).
+Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas précisé, mais, nous mettons à jour quand c'est nécessaire ( modification taille de map ... ) les informations de la map ( width et height de la structure ... ).
+
 
 \subsection{Résultats}
 \begin{itemize}
@@ -194,11 +196,9 @@ Pour toutes les fonctions set du fichier 'maputils.c', nous ne l'avons pas préc
   \item[\wontfix] Rapport sans faute de valgrind (SDL?)
   \end{todolist}
 \end{itemize}
-
-
 \section{Gestion des temporisateurs}
 \subsection{Choix}
-Nous avons dabord créé une structure 'Event' représentant une nouvelle occurrence d'un timer (bombe ou mine). La structure comprend les champs suivants :
+Nous avons d'abord créé une structure 'Event' représentant une nouvelle occurrence d'un timer (bombe ou mine). La structure comprend les champs suivants :
 
 \begin{minted}{C}
 typedef struct event_s {
