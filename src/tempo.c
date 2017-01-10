@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 600
 
 #include <SDL.h>
 #include <unistd.h>
@@ -185,7 +185,7 @@ void* daemon_handler(void* argp)
                 next_timer = delay_of_event(head);
             curr_timer = get_time();
             pthread_mutex_unlock(&mutex);
-        } while ((curr_timer + 100000UL > next_timer) && head != NULL); // 500000UL = 500ms
+        } while ((curr_timer + 50000UL > next_timer) && head != NULL); // 500000UL = 500ms
 
         if (head != NULL)
         {

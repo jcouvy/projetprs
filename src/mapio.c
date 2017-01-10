@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <animation.h>
 #include "map.h"
 #include "error.h"
 
@@ -210,6 +210,7 @@ void map_save(char *filename) {
     for (int i=0 ; i<map.nb_objects ; i++) {
             free(objs[i].name);
     }
+    animation_objects_save(SaveFile);
     close(SaveFile);
 }
 
@@ -303,6 +304,7 @@ void map_load(char *filename) {
             free(objs[i].name);
     }
 
+    animation_objects_load(LoadFile);
     close(LoadFile);
 }
 
